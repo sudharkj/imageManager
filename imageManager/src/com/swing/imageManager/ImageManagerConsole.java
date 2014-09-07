@@ -102,9 +102,9 @@ public class ImageManagerConsole extends JComponent {
 	private static String BasePath;
 	private static String ImagePath;
 	private static String ThumbsPath;
-	private static String DocsPath;
-	private static String RectPath;
-	private static String IndexPath;
+	private static String DocsPath = Helper.CACHE_PATH + "/keywords";
+	private static String RectPath = Helper.CACHE_PATH + "/recDetails";
+	private static String IndexPath = Helper.CACHE_PATH + "/index";
 
 	private static ArrayList<String> FileNames;
 	private String lang[] = { "eng", "hin" };
@@ -205,9 +205,6 @@ public class ImageManagerConsole extends JComponent {
 	public ImageManagerConsole() throws IOException {
 		ImagePath = BasePath + "/imageFiles";
 		ThumbsPath = BasePath + "/thumbImages";
-		DocsPath = BasePath + "/keywords";
-		RectPath = BasePath + "/rectDetails";
-		IndexPath = BasePath + "/index";
 
 		FileNames = new ArrayList<>();
 		ImageRectangles = new ArrayList<Rectangle>();
@@ -455,9 +452,9 @@ public class ImageManagerConsole extends JComponent {
 								out.println(par[0] + ":" + par[1] + ":"
 										+ par[2] + ":" + par[3] + ":" + str);
 								out1.println(str + " ");
-								System.out.println("on line 491: " + par[0]
-										+ ":" + par[1] + ":" + par[2] + ":"
-										+ par[3] + ":" + str);
+								// System.out.println("on line 491: " + par[0]
+								// + ":" + par[1] + ":" + par[2] + ":"
+								// + par[3] + ":" + str); // log
 								out.close();
 								out1.close();
 								indexFiles();
@@ -526,7 +523,6 @@ public class ImageManagerConsole extends JComponent {
 				Different.add(false);
 				modifyKeyFiles();
 				paintComponent(imgLbl.getGraphics());
-				System.out.println(str);
 			}
 		});
 		JButton edit = new JButton("");
@@ -546,9 +542,7 @@ public class ImageManagerConsole extends JComponent {
 					keyList.add(ind, str);
 					modifyKeyFiles();
 					paintComponent(imgLbl.getGraphics());
-					System.out.println(str);
 				}
-				System.out.println("Button clicked: " + ind);
 			}
 		});
 		buttonPanel.add(edit);
@@ -568,9 +562,7 @@ public class ImageManagerConsole extends JComponent {
 					Different.remove(ind);
 					modifyKeyFiles();
 					paintComponent(imgLbl.getGraphics());
-					System.out.println(str);
 				}
-				System.out.println("Button clicked: " + ind);
 			}
 		});
 		buttonPanel.add(minus);
@@ -944,11 +936,9 @@ public class ImageManagerConsole extends JComponent {
 					// only if the scrollpane doesn't show all the images
 				} catch (IIOException e) {
 					addThumbImage(fileName);
-					System.out.println("865" + e.toString());
 				} catch (Exception e) {
-					System.out.println(fileName);
-					System.out.println("868" + e.toString()); // log for invalid
-																// file
+					System.out.println(e.toString()); // log for invalid
+														// file
 					// format
 				}
 				return FileVisitResult.CONTINUE;
@@ -1013,8 +1003,8 @@ public class ImageManagerConsole extends JComponent {
 					ScoreDoc[] hits = results.scoreDocs;
 
 					int numTotalHits = results.totalHits;
-					System.out.println(numTotalHits
-							+ " total matching documents"); // log
+					// System.out.println(numTotalHits
+					// + " total matching documents"); // log
 
 					int start = 0;
 					int end = Math.min(numTotalHits, hitsPerPage);
