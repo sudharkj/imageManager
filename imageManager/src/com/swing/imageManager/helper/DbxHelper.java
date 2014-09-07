@@ -25,6 +25,7 @@ import com.dropbox.core.json.JsonReader;
 public class DbxHelper {
 
 	public final static String CLASS_NAME = "DbxHelper";
+	public final static String HEADER = "In " + CLASS_NAME + ":\n";
 
 	public DbxHelper() {
 		File authInfoFile = new File(Helper.USER_AUTH_TOKEN_FILE_NAME);
@@ -38,8 +39,8 @@ public class DbxHelper {
 			appInfo = DbxAppInfo.Reader
 					.readFromFile(Helper.APP_AUTH_DETAILS_FILE_NAME);
 		} catch (JsonReader.FileLoadException e) {
-			Helper.handleError("In " + CLASS_NAME
-					+ ":\nError reading <app-info-file>: " + e.getMessage());
+			Helper.handleError(HEADER + "Error reading <app-info-file>: "
+					+ e.getMessage());
 		}
 
 		// Run through Dropbox API authorization process
@@ -60,11 +61,11 @@ public class DbxHelper {
 			code = new BufferedReader(new InputStreamReader(System.in))
 					.readLine();
 		} catch (IOException e) {
-			Helper.handleError("In " + CLASS_NAME + ":\nError reading <code>: "
+			Helper.handleError(HEADER + "Error reading <code>: "
 					+ e.getMessage());
 		}
 		if (code == null) {
-			Helper.handleError("In " + CLASS_NAME + ":\nObtained <code>: null");
+			Helper.handleError(HEADER + "Obtained <code>: null");
 		}
 		code = code.trim();
 
@@ -72,8 +73,8 @@ public class DbxHelper {
 		try {
 			authFinish = webAuth.finish(code);
 		} catch (DbxException ex) {
-			Helper.handleError("In " + CLASS_NAME
-					+ ":\nError in DbxWebAuth.start: " + ex.getMessage());
+			Helper.handleError(HEADER + "Error in DbxWebAuth.start: "
+					+ ex.getMessage());
 		}
 
 		Helper.showMessage("Authorization complete.\n" + "- User ID: "
@@ -92,9 +93,9 @@ public class DbxHelper {
 			Helper.showMessage("Saved authorization information to \""
 					+ Helper.USER_AUTH_TOKEN_FILE_NAME + "\".");
 		} catch (IOException ex) {
-			Helper.handleError("In " + CLASS_NAME
-					+ ":\nError saving to <auth-file-out>: " + ex.getMessage()
-					+ "\nDumping to stderr instead: " + authInfo.toString());
+			Helper.handleError(HEADER + "Error saving to <auth-file-out>: "
+					+ ex.getMessage() + "\nDumping to stderr instead: "
+					+ authInfo.toString());
 		}
 	}
 
