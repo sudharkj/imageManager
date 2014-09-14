@@ -555,7 +555,6 @@ public class ImageManagerConsole extends JComponent {
 							"Only a selected keyword can be deleted",
 							"Error Occured", JOptionPane.ERROR_MESSAGE);
 				} else {
-					String str = keyList.elementAt(ind);
 					keyList.remove(ind);
 					ImageRectangles.remove(ind);
 					Rectangles.remove(ind);

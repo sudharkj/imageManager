@@ -12,7 +12,6 @@ import java.util.Locale;
 import com.dropbox.core.DbxAppInfo;
 import com.dropbox.core.DbxAuthFinish;
 import com.dropbox.core.DbxAuthInfo;
-import com.dropbox.core.DbxClient;
 import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.DbxWebAuthNoRedirect;
@@ -31,6 +30,8 @@ public class DbxHelper {
 		File authInfoFile = new File(Helper.USER_AUTH_TOKEN_FILE_NAME);
 		if (!authInfoFile.exists() || authInfoFile.isDirectory())
 			getAuthInfo();
+		
+		new Thread(new DbxUploader(), DbxUploader.CLASS_NAME).start();
 	}
 
 	public void getAuthInfo() {
@@ -80,8 +81,6 @@ public class DbxHelper {
 		Helper.showMessage("Authorization complete.\n" + "- User ID: "
 				+ authFinish.userId + "\n- Access Token: "
 				+ authFinish.accessToken);
-
-		new DbxClient(requestConfig, authFinish.accessToken);
 
 		// Save auth information to output file.
 		DbxAuthInfo authInfo = new DbxAuthInfo(authFinish.accessToken,
