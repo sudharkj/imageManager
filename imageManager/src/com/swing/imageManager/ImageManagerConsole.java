@@ -99,13 +99,6 @@ public class ImageManagerConsole extends JComponent {
 	private final static String CLASS_NAME = "ImageManagerConsole";
 	private final static String HEADER = "In " + CLASS_NAME + ":\n";
 
-	private static String BasePath;
-	private static String ImagePath;
-	private static String ThumbsPath;
-	private static String DocsPath = Helper.CACHE_PATH + "/keywords";
-	private static String RectPath = Helper.CACHE_PATH + "/recDetails";
-	private static String IndexPath = Helper.CACHE_PATH + "/index";
-
 	private static ArrayList<String> FileNames;
 	private String lang[] = { "eng", "hin" };
 	private int FileNumber;
@@ -162,13 +155,13 @@ public class ImageManagerConsole extends JComponent {
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(
 					Helper.DBX_DIR_LOC_FILE_NAME));
-			BasePath = br.readLine();
-			if (BasePath.trim().isEmpty()) {
+			Helper.LOCAL_BASE_PATH = br.readLine();
+			if (Helper.LOCAL_BASE_PATH.trim().isEmpty()) {
 				br.close();
 				Helper.handleError(HEADER + "Dropbox location not set in "
 						+ Helper.DBX_DIR_LOC_FILE_NAME);
 			}
-			Helper.showMessage("Folder location: " + BasePath);
+			Helper.showMessage("Folder location: " + Helper.LOCAL_BASE_PATH);
 			br.close();
 		} catch (FileNotFoundException ex) {
 			Helper.handleError(HEADER + "File not found <dbx-dir-loc>: "
@@ -203,8 +196,8 @@ public class ImageManagerConsole extends JComponent {
 	 * @throws IOException
 	 */
 	public ImageManagerConsole() throws IOException {
-		ImagePath = BasePath + "/imageFiles";
-		ThumbsPath = BasePath + "/thumbImages";
+		Helper.LOCAL_IMAGES_PATH = Helper.LOCAL_BASE_PATH + "/imageFiles";
+		Helper.LOCAL_THUMBS_PATH = Helper.LOCAL_BASE_PATH + "/thumbImages";
 
 		FileNames = new ArrayList<>();
 		ImageRectangles = new ArrayList<Rectangle>();
@@ -221,7 +214,7 @@ public class ImageManagerConsole extends JComponent {
 
 		initialize();
 
-		loadFiles(Paths.get(ImagePath));
+		loadFiles(Paths.get(Helper.LOCAL_IMAGES_PATH));
 		loadImage(0);
 
 		MouseDown = false;
@@ -261,7 +254,7 @@ public class ImageManagerConsole extends JComponent {
 		btnRefresh.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				try {
-					loadFiles(Paths.get(ImagePath));
+					loadFiles(Paths.get(Helper.LOCAL_IMAGES_PATH));
 					if (!thumbscon.isEmpty())
 						loadImage(0);
 					prevSelectedInd = -1;
@@ -294,7 +287,7 @@ public class ImageManagerConsole extends JComponent {
 					private void modify() {
 						SearchText = searchTextField.getText();
 						try {
-							loadFiles(Paths.get(ImagePath));
+							loadFiles(Paths.get(Helper.LOCAL_IMAGES_PATH));
 						} catch (IOException e) {
 							// System.out.println(e.toString()); // log
 						}
@@ -437,13 +430,14 @@ public class ImageManagerConsole extends JComponent {
 								str = str + s + " ";
 							str = str.trim();
 							try (PrintWriter out = new PrintWriter(
-									new BufferedWriter(new FileWriter(RectPath
-											+ "/" + FileNames.get(FileNumber)
-											+ ".txt", true)));
+									new BufferedWriter(new FileWriter(
+											Helper.LOCAL_RECTANGLES_PATH + "/"
+													+ FileNames.get(FileNumber)
+													+ ".txt", true)));
 									PrintWriter out1 = new PrintWriter(
 											new BufferedWriter(
 													new FileWriter(
-															DocsPath
+															Helper.LOCAL_KEYWORDS_PATH
 																	+ "/"
 																	+ FileNames
 																			.get(FileNumber)
@@ -615,10 +609,12 @@ public class ImageManagerConsole extends JComponent {
 			@Override
 			protected Void doInBackground() throws Exception {
 				try {
-					PrintWriter out = new PrintWriter(RectPath + "/"
-							+ FileNames.get(FileNumber) + ".txt");
-					PrintWriter out1 = new PrintWriter(DocsPath + "/"
-							+ FileNames.get(FileNumber) + ".txt");
+					PrintWriter out = new PrintWriter(
+							Helper.LOCAL_RECTANGLES_PATH + "/"
+									+ FileNames.get(FileNumber) + ".txt");
+					PrintWriter out1 = new PrintWriter(
+							Helper.LOCAL_KEYWORDS_PATH + "/"
+									+ FileNames.get(FileNumber) + ".txt");
 					for (int i = 0; i < ImageRectangles.size(); ++i) {
 						Rectangle rect = ImageRectangles.get(i);
 						out.println(rect.x + ":" + rect.y + ":" + rect.width
@@ -643,9 +639,9 @@ public class ImageManagerConsole extends JComponent {
 	 * Function initializes the required variables before indexing
 	 */
 	private void indexFiles() {
-		String docsPath = DocsPath;
+		String docsPath = Helper.LOCAL_KEYWORDS_PATH;
 		boolean create;
-		final File indDir = new File(IndexPath);
+		final File indDir = new File(Helper.LOCAL_INDEX_PATH);
 		if (!indDir.exists())
 			create = true;
 		else
@@ -661,7 +657,7 @@ public class ImageManagerConsole extends JComponent {
 		 */
 
 		try {
-			Directory dir = FSDirectory.open(new File(IndexPath));
+			Directory dir = FSDirectory.open(new File(Helper.LOCAL_INDEX_PATH));
 			Analyzer analyzer = new StandardAnalyzer(
 					Version.parseLeniently("4.0"));
 			IndexWriterConfig iwc = new IndexWriterConfig(
@@ -927,8 +923,8 @@ public class ImageManagerConsole extends JComponent {
 					// proper format
 					// System.out.format("%s (%s) added to the ArrayList\n",fileName,file.toString());
 					// // log
-					curImage = ImageIO.read(new File(ThumbsPath + "\\"
-							+ fileName));
+					curImage = ImageIO.read(new File(Helper.LOCAL_THUMBS_PATH
+							+ "\\" + fileName));
 					thumbscon.addElement(new ImageIcon(curImage));
 					FileNames.add(fileName);
 					// scrollPane.setViewportView(thumbsList); // uncomment it
@@ -973,7 +969,7 @@ public class ImageManagerConsole extends JComponent {
 			@Override
 			protected Void doInBackground() throws Exception {
 				IndexReader reader = DirectoryReader.open(FSDirectory
-						.open(new File(IndexPath)));
+						.open(new File(Helper.LOCAL_INDEX_PATH)));
 				IndexSearcher searcher = new IndexSearcher(reader);
 				Analyzer analyzer = new StandardAnalyzer(
 						Version.parseLeniently("4.0"));
@@ -1022,8 +1018,10 @@ public class ImageManagerConsole extends JComponent {
 										path.lastIndexOf('.'));// System.out.println(new
 																// File(ThumbsPath+'\\'+file).getAbsolutePath());
 																// // log
-								thumbscon.addElement(new ImageIcon(ThumbsPath
-										+ '\\' + file));
+								thumbscon
+										.addElement(new ImageIcon(
+												Helper.LOCAL_THUMBS_PATH + '\\'
+														+ file));
 								FileNames.add(file);
 							} else {
 								throw new IOException("No defined path");
@@ -1070,7 +1068,7 @@ public class ImageManagerConsole extends JComponent {
 					+ ")");
 			title.setTitleJustification(TitledBorder.CENTER);
 			imgPane.setBorder(title);
-			ActualImage = ImageIO.read(new File(ImagePath + "/"
+			ActualImage = ImageIO.read(new File(Helper.LOCAL_IMAGES_PATH + "/"
 					+ FileNames.get(index)));
 			ActualImageWidth = ActualImage.getWidth(null);
 			ActualImageHeight = ActualImage.getHeight(null);
@@ -1082,8 +1080,9 @@ public class ImageManagerConsole extends JComponent {
 			try {
 				@SuppressWarnings("resource")
 				// remove it if needed
-				BufferedReader br = new BufferedReader(new FileReader(RectPath
-						+ "/" + FileNames.get(index) + ".txt"));
+				BufferedReader br = new BufferedReader(new FileReader(
+						Helper.LOCAL_RECTANGLES_PATH + "/"
+								+ FileNames.get(index) + ".txt"));
 				String curLine;
 				while ((curLine = br.readLine()) != null) {
 					String pattern = "(\\d*):(\\d*):(\\d*):(\\d*):(.*)";
@@ -1213,13 +1212,14 @@ public class ImageManagerConsole extends JComponent {
 		int index = fileName.lastIndexOf('.');
 		if (index == 0)
 			throw new IOException();
-		Image image = ImageIO.read(new File(ImagePath + "\\" + fileName))
+		Image image = ImageIO.read(
+				new File(Helper.LOCAL_IMAGES_PATH + "\\" + fileName))
 				.getScaledInstance(40, 40, Image.SCALE_SMOOTH);
 		BufferedImage resizedImage = new BufferedImage(40, 40,
 				BufferedImage.TYPE_INT_ARGB);
 		resizedImage.getGraphics().drawImage(image, 0, 0, null);
 		ImageIO.write(resizedImage, fileName.substring(index + 1), new File(
-				ThumbsPath + "/" + fileName));
+				Helper.LOCAL_THUMBS_PATH + "/" + fileName));
 
 		// this will add the items
 		if (SearchText.trim().isEmpty()) {

@@ -12,6 +12,7 @@ import java.util.Locale;
 import com.dropbox.core.DbxAppInfo;
 import com.dropbox.core.DbxAuthFinish;
 import com.dropbox.core.DbxAuthInfo;
+import com.dropbox.core.DbxClient;
 import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.DbxWebAuthNoRedirect;
@@ -96,6 +97,25 @@ public class DbxHelper {
 					+ ex.getMessage() + "\nDumping to stderr instead: "
 					+ authInfo.toString());
 		}
+	}
+	
+	public static DbxClient getDbxClient() {
+		// Read auth info file.
+		DbxAuthInfo authInfo = null;
+		try {
+			authInfo = DbxAuthInfo.Reader
+					.readFromFile(Helper.USER_AUTH_TOKEN_FILE_NAME);
+		} catch (JsonReader.FileLoadException e) {
+			Helper.handleError(HEADER
+					+ "Error reading <user-auth-token-file>: " + e.getMessage());
+		}
+
+		// Create a DbxClient, which is what you use to make API calls.
+		String userLocale = Locale.getDefault().toString();
+		DbxRequestConfig requestConfig = new DbxRequestConfig(CLASS_NAME,
+				userLocale);
+		return new DbxClient(requestConfig, authInfo.accessToken,
+				authInfo.host);
 	}
 
 }
