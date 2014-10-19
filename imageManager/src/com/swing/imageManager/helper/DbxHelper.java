@@ -9,6 +9,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Locale;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.dropbox.core.DbxAppInfo;
 import com.dropbox.core.DbxAuthFinish;
 import com.dropbox.core.DbxAuthInfo;
@@ -24,6 +27,8 @@ import com.dropbox.core.json.JsonReader;
  */
 public class DbxHelper {
 
+	final static Logger LOGGER = LogManager.getLogger(DbxHelper.class);
+
 	public final static String CLASS_NAME = "DbxHelper";
 	public final static String HEADER = "In " + CLASS_NAME + ":\n";
 
@@ -31,7 +36,7 @@ public class DbxHelper {
 		File authInfoFile = new File(Helper.USER_AUTH_TOKEN_FILE_NAME);
 		if (!authInfoFile.exists() || authInfoFile.isDirectory())
 			getAuthInfo();
-		
+
 		new Thread(new DbxUploader(), DbxUploader.CLASS_NAME).start();
 	}
 
@@ -41,7 +46,7 @@ public class DbxHelper {
 			appInfo = DbxAppInfo.Reader
 					.readFromFile(Helper.APP_AUTH_DETAILS_FILE_NAME);
 		} catch (JsonReader.FileLoadException e) {
-			Helper.handleError(HEADER + "Error reading <app-info-file>: "
+			LOGGER.info(HEADER + "Error reading <app-info-file>: "
 					+ e.getMessage());
 		}
 
@@ -53,7 +58,7 @@ public class DbxHelper {
 				appInfo);
 
 		String authorizeUrl = webAuth.start();
-		Helper.showMessage("1. Go to " + authorizeUrl
+		LOGGER.info("1. Go to " + authorizeUrl
 				+ "\n2. Click \"Allow\" (you might have to log in first).\n"
 				+ "3. Copy the authorization code.\n"
 				+ "Enter the authorization code here: ");
@@ -63,11 +68,10 @@ public class DbxHelper {
 			code = new BufferedReader(new InputStreamReader(System.in))
 					.readLine();
 		} catch (IOException e) {
-			Helper.handleError(HEADER + "Error reading <code>: "
-					+ e.getMessage());
+			LOGGER.info(HEADER + "Error reading <code>: " + e.getMessage());
 		}
 		if (code == null) {
-			Helper.handleError(HEADER + "Obtained <code>: null");
+			LOGGER.info(HEADER + "Obtained <code>: null");
 		}
 		code = code.trim();
 
@@ -75,11 +79,11 @@ public class DbxHelper {
 		try {
 			authFinish = webAuth.finish(code);
 		} catch (DbxException ex) {
-			Helper.handleError(HEADER + "Error in DbxWebAuth.start: "
+			LOGGER.info(HEADER + "Error in DbxWebAuth.start: "
 					+ ex.getMessage());
 		}
 
-		Helper.showMessage("Authorization complete.\n" + "- User ID: "
+		LOGGER.info("Authorization complete.\n" + "- User ID: "
 				+ authFinish.userId + "\n- Access Token: "
 				+ authFinish.accessToken);
 
@@ -90,15 +94,15 @@ public class DbxHelper {
 		try {
 			DbxAuthInfo.Writer.writeToFile(authInfo,
 					Helper.USER_AUTH_TOKEN_FILE_NAME);
-			Helper.showMessage("Saved authorization information to \""
+			LOGGER.info("Saved authorization information to \""
 					+ Helper.USER_AUTH_TOKEN_FILE_NAME + "\".");
 		} catch (IOException ex) {
-			Helper.handleError(HEADER + "Error saving to <auth-file-out>: "
+			LOGGER.info(HEADER + "Error saving to <auth-file-out>: "
 					+ ex.getMessage() + "\nDumping to stderr instead: "
 					+ authInfo.toString());
 		}
 	}
-	
+
 	public static DbxClient getDbxClient() {
 		// Read auth info file.
 		DbxAuthInfo authInfo = null;
@@ -106,16 +110,15 @@ public class DbxHelper {
 			authInfo = DbxAuthInfo.Reader
 					.readFromFile(Helper.USER_AUTH_TOKEN_FILE_NAME);
 		} catch (JsonReader.FileLoadException e) {
-			Helper.handleError(HEADER
-					+ "Error reading <user-auth-token-file>: " + e.getMessage());
+			LOGGER.info(HEADER + "Error reading <user-auth-token-file>: "
+					+ e.getMessage());
 		}
 
 		// Create a DbxClient, which is what you use to make API calls.
 		String userLocale = Locale.getDefault().toString();
 		DbxRequestConfig requestConfig = new DbxRequestConfig(CLASS_NAME,
 				userLocale);
-		return new DbxClient(requestConfig, authInfo.accessToken,
-				authInfo.host);
+		return new DbxClient(requestConfig, authInfo.accessToken, authInfo.host);
 	}
 
 }

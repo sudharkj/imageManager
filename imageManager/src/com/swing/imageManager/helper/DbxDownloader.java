@@ -10,6 +10,9 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.dropbox.core.DbxClient;
 import com.dropbox.core.DbxDelta;
 import com.dropbox.core.DbxEntry;
@@ -20,6 +23,8 @@ import com.dropbox.core.DbxException;
  * 
  */
 public class DbxDownloader implements Runnable {
+
+	final static Logger LOGGER = LogManager.getLogger(DbxDownloader.class);
 
 	private DbxClient _dbxClient;
 	private String _cursor;
@@ -39,18 +44,17 @@ public class DbxDownloader implements Runnable {
 				// e.printStackTrace(); // ignore the error
 			} catch (IOException e) {
 				// e.printStackTrace();
-				Helper.showMessage("Unknown Exception: " + e.getMessage());
+				LOGGER.info("Unknown Exception: " + e.getMessage());
 			}
 		} else {
 			try {
 				if (deltaCursorFile.createNewFile())
-					Helper.showMessage("Created <cursor-file>");
+					LOGGER.info("Created <cursor-file>");
 				else
-					Helper.showMessage("Unable to create <cursor-file>");
+					LOGGER.info("Unable to create <cursor-file>");
 			} catch (IOException e) {
 				// e.printStackTrace();
-				Helper.showMessage("Unable to create <cursor-file>: "
-						+ e.getMessage());
+				LOGGER.info("Unable to create <cursor-file>: " + e.getMessage());
 			}
 		}
 
@@ -71,7 +75,7 @@ public class DbxDownloader implements Runnable {
 			} while (deltaEntry.hasMore);
 		} catch (DbxException e) {
 			// e.printStackTrace();
-			Helper.showMessage("Unknown exception occured: " + e.getMessage());
+			LOGGER.info("Unknown exception occured: " + e.getMessage());
 		}
 	}
 
@@ -112,17 +116,15 @@ public class DbxDownloader implements Runnable {
 				br.close();
 			} catch (FileNotFoundException e) {
 				// e.printStackTrace();
-				Helper.showMessage("Unknown exception occured: "
-						+ e.getMessage());
+				LOGGER.info("Unknown exception occured: " + e.getMessage());
 				dbxTime = localTime = 0;
 			} catch (DbxException e) {
 				// e.printStackTrace();
-				Helper.showMessage("Internet Connection Error");
+				LOGGER.info("Internet Connection Error");
 				dbxTime = localTime = 0;
 			} catch (IOException e) {
 				// e.printStackTrace();
-				Helper.showMessage("Unknown exception occured: "
-						+ e.getMessage());
+				LOGGER.info("Unknown exception occured: " + e.getMessage());
 				dbxTime = localTime = 0;
 			} finally {
 				if (outputStream != null)
@@ -130,7 +132,7 @@ public class DbxDownloader implements Runnable {
 						outputStream.close();
 					} catch (IOException e) {
 						// e.printStackTrace();
-						Helper.showMessage("Unknown exception occured: "
+						LOGGER.info("Unknown exception occured: "
 								+ e.getMessage());
 						dbxTime = localTime = 0;
 					}
@@ -142,7 +144,7 @@ public class DbxDownloader implements Runnable {
 				localTime = new File(to).getAbsoluteFile().lastModified();
 			} catch (DbxException e) {
 				// e.printStackTrace();
-				Helper.showMessage("Internet Connection Error");
+				LOGGER.info("Internet Connection Error");
 				dbxTime = localTime = 0;
 			}
 		}
@@ -154,22 +156,20 @@ public class DbxDownloader implements Runnable {
 				_dbxClient.getFile(from, null, outputStream);
 			} catch (FileNotFoundException e) {
 				// e.printStackTrace();
-				Helper.showMessage("Unknown exception occured: "
-						+ e.getMessage());
+				LOGGER.info("Unknown exception occured: " + e.getMessage());
 			} catch (DbxException e) {
 				// e.printStackTrace();
-				Helper.showMessage("Internet Connection Error");
+				LOGGER.info("Internet Connection Error");
 			} catch (IOException e) {
 				// e.printStackTrace();
-				Helper.showMessage("Unknown exception occured: "
-						+ e.getMessage());
+				LOGGER.info("Unknown exception occured: " + e.getMessage());
 			} finally {
 				if (outputStream != null)
 					try {
 						outputStream.close();
 					} catch (IOException e) {
 						// e.printStackTrace();
-						Helper.showMessage("Unknown exception occured: "
+						LOGGER.info("Unknown exception occured: "
 								+ e.getMessage());
 					}
 			}

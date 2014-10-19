@@ -13,6 +13,7 @@ public class Helper {
 	public final static String DETAILS_PATH = CACHE_PATH + "/details";
 	public final static String ICONS_PATH = CACHE_PATH + "/icons";
 	public final static String TEMP_PATH = CACHE_PATH + "/tmp";
+	public final static String DIFF_KEYWORDS_PATH = TEMP_PATH + "/keywords";
 
 	/**
 	 * File must of the form: { "key": "YOUR_KEY", "secret": "YOUR_SECRET" }
@@ -53,14 +54,5 @@ public class Helper {
 	public static String LOCAL_TIME_STAMP_PATH = CACHE_PATH + "/timestamp";
 	public static String LOCAL_INDEX_FILE_NAME = LOCAL_TIME_STAMP_PATH
 			+ "/index.txt";
-
-	public static void showMessage(String message) {
-		System.out.print("\n" + message);
-	}
-
-	public static void handleError(String message) {
-		System.err.println(message);
-		System.exit(1);
-	}
 
 }

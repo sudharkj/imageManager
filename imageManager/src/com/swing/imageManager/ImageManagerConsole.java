@@ -38,6 +38,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -93,11 +94,14 @@ import org.apache.lucene.util.Version;
 import com.swing.imageManager.helper.DbxHelper;
 import com.swing.imageManager.helper.Helper;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 @SuppressWarnings("serial")
 public class ImageManagerConsole extends JComponent {
 
-	private final static String CLASS_NAME = "ImageManagerConsole";
-	private final static String HEADER = "In " + CLASS_NAME + ":\n";
+	final static Logger LOGGER = LogManager
+			.getLogger(ImageManagerConsole.class);
 
 	private static ArrayList<String> FileNames;
 	private String lang[] = { "eng", "hin" };
@@ -125,6 +129,7 @@ public class ImageManagerConsole extends JComponent {
 	private int ImageWidth;
 	private int ImageHeight;
 	private final int ThumbsPaneHeight = 65;
+
 	private JFrame frame;
 	private JLabel imgLbl;
 	private DefaultListModel<String> keyList;
@@ -147,35 +152,33 @@ public class ImageManagerConsole extends JComponent {
 	/**
 	 * Launch the application.
 	 * 
+	 * @param args
 	 * @throws IOException
 	 */
 	public static void main(String[] args) {
-		new DbxHelper();
+		// new DbxHelper();
 
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(
 					Helper.DBX_DIR_LOC_FILE_NAME));
 			Helper.LOCAL_BASE_PATH = br.readLine();
 			if (Helper.LOCAL_BASE_PATH.trim().isEmpty()) {
-				br.close();
-				Helper.handleError(HEADER + "Dropbox location not set in "
+				closeApplication("Dropbox location not set in "
 						+ Helper.DBX_DIR_LOC_FILE_NAME);
 			}
-			Helper.showMessage("Folder location: " + Helper.LOCAL_BASE_PATH);
+			LOGGER.info("Dropbox folder location: " + Helper.LOCAL_BASE_PATH);
 			br.close();
 		} catch (FileNotFoundException ex) {
-			Helper.handleError(HEADER + "File not found <dbx-dir-loc>: "
-					+ ex.getMessage());
+			closeApplication("File not found <dbx-dir-loc>: " + ex.getMessage());
 		} catch (IOException e) {
-			Helper.handleError(HEADER + "Error reading <dbx-dir-loc>: "
-					+ e.getMessage());
+			closeApplication("Error reading <dbx-dir-loc>: " + e.getMessage());
 		}
 
 		try {
 			UIManager
 					.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
 		} catch (Throwable e) {
-			Helper.handleError(HEADER + e.getMessage());
+			LOGGER.error(e.getMessage());
 		}
 
 		EventQueue.invokeLater(new Runnable() {
@@ -184,10 +187,21 @@ public class ImageManagerConsole extends JComponent {
 					ImageManagerConsole window = new ImageManagerConsole();
 					window.frame.setVisible(true);
 				} catch (Exception e) {
-					Helper.handleError(HEADER + e.getMessage());
+					closeApplication(e.getMessage());
 				}
 			}
 		});
+	}
+
+	/**
+	 * closeApplication
+	 * 
+	 * @param message
+	 */
+	private static void closeApplication(String message) {
+		LOGGER.info(message);
+		LOGGER.info("Aborting system");
+		System.exit(ABORT);
 	}
 
 	/**
@@ -240,6 +254,10 @@ public class ImageManagerConsole extends JComponent {
 				AppHeight = frame.getSize().height;
 
 				resizeComponents(prevWidth, prevHeight);
+
+				LOGGER.debug("Application resized from [" + prevWidth + ","
+						+ prevHeight + "] to [" + AppWidth + "," + AppHeight
+						+ "]");
 			}
 		});
 		frame.setTitle("Notice Box");
@@ -255,11 +273,14 @@ public class ImageManagerConsole extends JComponent {
 			public void actionPerformed(ActionEvent arg0) {
 				try {
 					loadFiles(Paths.get(Helper.LOCAL_IMAGES_PATH));
-					if (!thumbscon.isEmpty())
+					if (!thumbscon.isEmpty()) {
 						loadImage(0);
+						LOGGER.info(FileNames.get(0) + " is loaded");
+					}
 					prevSelectedInd = -1;
 				} catch (IOException e) {
-					// System.out.println(e.toString()); //log for invalid file
+					LOGGER.info(e.getMessage()); // log for invalid
+													// file
 					// format
 				}
 			}
@@ -289,7 +310,7 @@ public class ImageManagerConsole extends JComponent {
 						try {
 							loadFiles(Paths.get(Helper.LOCAL_IMAGES_PATH));
 						} catch (IOException e) {
-							// System.out.println(e.toString()); // log
+							LOGGER.info(e.getMessage()); // log
 						}
 					}
 				});
@@ -313,7 +334,7 @@ public class ImageManagerConsole extends JComponent {
 		showLog.setIcon(new ImageIcon(Helper.LOG_ICON_PATH));
 		showLog.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				System.out.println("Show Log button is clicked");
+				LOGGER.info("Feature yet to be implemented");
 			}
 		});
 		searchPanel.add(showLog);
@@ -326,6 +347,7 @@ public class ImageManagerConsole extends JComponent {
 				final int prevWidth = ImageWidth;
 				final int prevHeight = ImageHeight;
 				int change = DividerLocation - imgPane.getDividerLocation();
+				LOGGER.debug("Divider location changed by " + change);
 				// go for changes only when change is not zero
 				if (((change < 0 && -change < ImageWidth) || (change > 0 && change < KeywordWidth))) {
 					KeywordWidth = KeywordWidth + change;
@@ -390,6 +412,8 @@ public class ImageManagerConsole extends JComponent {
 						Rectangles
 								.add(new Rectangle(pt[0], pt[1], pt[2], pt[3]));
 						Different.add(false);
+						LOGGER.info("Rectangle drawn: [" + pt[0] + "," + pt[1]
+								+ "," + pt[2] + "," + pt[3] + "]");
 						getImageText(pt);
 					}
 					StartPoint = EndPoint;
@@ -429,6 +453,7 @@ public class ImageManagerConsole extends JComponent {
 							while ((s = stdIn.readLine()) != null)
 								str = str + s + " ";
 							str = str.trim();
+							LOGGER.info("<" + str + "> added to keywords");
 							try (PrintWriter out = new PrintWriter(
 									new BufferedWriter(new FileWriter(
 											Helper.LOCAL_RECTANGLES_PATH + "/"
@@ -453,8 +478,9 @@ public class ImageManagerConsole extends JComponent {
 								out1.close();
 								indexFiles();
 							} catch (IOException e) {
-								System.out.println(e.toString());// check the
-																	// exceptions
+								LOGGER.info(e.getMessage());// check
+															// the
+															// exceptions
 							}
 							keyList.addElement(str);
 							fp = new File(fileName + ".txt");
@@ -512,6 +538,7 @@ public class ImageManagerConsole extends JComponent {
 						"Enter the keyword to be added", "Add",
 						JOptionPane.INFORMATION_MESSAGE);
 				keyList.addElement(str);
+				LOGGER.info("<" + str + "> added to keywords");
 				ImageRectangles.add(new Rectangle(0, 0, 1, 1));
 				Rectangles.add(new Rectangle(0, 0, 1, 1));
 				Different.add(false);
@@ -534,6 +561,7 @@ public class ImageManagerConsole extends JComponent {
 							JOptionPane.INFORMATION_MESSAGE);
 					keyList.remove(ind);
 					keyList.add(ind, str);
+					LOGGER.info("<" + str + "> added to keywords");
 					modifyKeyFiles();
 					paintComponent(imgLbl.getGraphics());
 				}
@@ -553,6 +581,8 @@ public class ImageManagerConsole extends JComponent {
 					ImageRectangles.remove(ind);
 					Rectangles.remove(ind);
 					Different.remove(ind);
+					LOGGER.info("<" + keyList.get(ind)
+							+ "> removed from keywords");
 					modifyKeyFiles();
 					paintComponent(imgLbl.getGraphics());
 				}
@@ -582,7 +612,7 @@ public class ImageManagerConsole extends JComponent {
 					try {
 						loadImage(thumbsList.getSelectedIndex());
 					} catch (IOException e) {
-						// System.out.println(e.toString()); // log - not
+						LOGGER.info(e.getMessage()); // log - not
 						// required
 					}
 				}
@@ -626,8 +656,8 @@ public class ImageManagerConsole extends JComponent {
 					out1.close();
 					indexFiles();
 				} catch (IOException e) {
-					System.out.println(e.toString());// check the
-														// exceptions
+					LOGGER.info(e.getMessage());// check the
+												// exceptions
 				}
 				return null;
 			}
@@ -693,8 +723,7 @@ public class ImageManagerConsole extends JComponent {
 			writer.close();
 
 		} catch (IOException e) {
-			// System.out.println(" caught a " + e.getClass() +
-			// "\n with message: " + e.getMessage()); // log
+			LOGGER.info(e.getMessage()); // log
 		}
 	}
 
@@ -720,6 +749,7 @@ public class ImageManagerConsole extends JComponent {
 				try {
 					fis = new FileInputStream(file);
 				} catch (FileNotFoundException fnfe) {
+					LOGGER.info(fnfe.getMessage());
 					// at least on windows, some temporary files raise this
 					// exception with an "access denied" message
 					// checking if the file can be read doesn't help
@@ -783,12 +813,12 @@ public class ImageManagerConsole extends JComponent {
 					}
 
 				} catch (IOException e) {
-					// System.out.println(e.toString()); // log
+					LOGGER.info(e.getMessage()); // log
 				} finally {
 					try {
 						fis.close();
 					} catch (IOException e) {
-						// System.out.println(e.toString()); // log
+						LOGGER.info(e.getMessage()); // log
 					}
 				}
 			}
@@ -932,8 +962,8 @@ public class ImageManagerConsole extends JComponent {
 				} catch (IIOException e) {
 					addThumbImage(fileName);
 				} catch (Exception e) {
-					System.out.println(e.toString()); // log for invalid
-														// file
+					LOGGER.info(e.getMessage()); // log for invalid
+					// file
 					// format
 				}
 				return FileVisitResult.CONTINUE;
@@ -1041,7 +1071,7 @@ public class ImageManagerConsole extends JComponent {
 							break;
 					}
 				} catch (Exception e) {
-					// System.out.println(e); // log
+					LOGGER.info(e.getMessage()); // log
 				}
 			}
 
@@ -1113,10 +1143,10 @@ public class ImageManagerConsole extends JComponent {
 					// System.out.println(pr+": "+key); // log
 				}
 			} catch (FileNotFoundException e) {
-				// System.out.println("No keywords extracted till now"+e.toString());
-				// // log
+				LOGGER.info(e.getMessage());// log
 			} catch (IOException e) {
-				// System.out.println(e.toString()); // log for corrupted file
+				LOGGER.info(e.getMessage()); // log for corrupted
+												// file
 			}
 			// paintComponent(imgLbl.getGraphics()); // this doesn't work till
 			// there is event occured

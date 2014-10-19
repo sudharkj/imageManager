@@ -5,12 +5,17 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Date;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.dropbox.core.DbxClient;
 import com.dropbox.core.DbxEntry;
 import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxWriteMode;
 
 public class DbxUploader implements Runnable {
+
+	final static Logger LOGGER = LogManager.getLogger(DbxUploader.class);
 
 	private String[] toUpload = { "index", "keywords", "recDetails" };
 	public final static String CLASS_NAME = "DbxUploader";
@@ -28,7 +33,7 @@ public class DbxUploader implements Runnable {
 		try {
 			entry = _dbxClient.getMetadata(Helper.DBX_INDEX_FILE_NAME);
 		} catch (DbxException e) {
-			Helper.showMessage("Unknown exception occured: " + e.getMessage());
+			LOGGER.info("Unknown exception occured: " + e.getMessage());
 		}
 
 		if (entry == null)
@@ -61,8 +66,7 @@ public class DbxUploader implements Runnable {
 						}
 					}
 				} catch (DbxException e) {
-					Helper.showMessage("Unknown exception caught: "
-							+ e.getMessage());
+					LOGGER.info("Unknown exception caught: " + e.getMessage());
 				}
 			}
 
@@ -82,10 +86,10 @@ public class DbxUploader implements Runnable {
 			if (diff < limit) {
 				synchronized (this) {
 					try {
-						Helper.showMessage("going to wait");
+						LOGGER.info("going to wait");
 						this.wait(limit - diff);
 						createLocalIndexFile();
-						Helper.showMessage("waiting over");
+						LOGGER.info("waiting over");
 					} catch (InterruptedException e) {
 						// e.printStackTrace(); // ignore the error
 					}
@@ -115,10 +119,9 @@ public class DbxUploader implements Runnable {
 		if (!indexFile.exists()) {
 			try {
 				if (indexFile.createNewFile())
-					Helper.showMessage(Helper.LOCAL_INDEX_FILE_NAME
-							+ " created");
+					LOGGER.info(Helper.LOCAL_INDEX_FILE_NAME + " created");
 				else
-					Helper.showMessage("Error creating "
+					LOGGER.info("Error creating "
 							+ Helper.LOCAL_INDEX_FILE_NAME);
 			} catch (IOException e1) {
 				// e1.printStackTrace(); // ignore the caught exception
@@ -129,7 +132,7 @@ public class DbxUploader implements Runnable {
 	private void uploadFile(String from, String to) throws DbxException {
 
 		// Make the API call to upload the file.
-		Helper.showMessage("uploading file [" + from + "] to [" + to + "]");
+		LOGGER.info("uploading file [" + from + "] to [" + to + "]");
 		// log
 		try {
 			DbxEntry metadata = _dbxClient.getMetadata(to);
