@@ -52,6 +52,7 @@ public class Helper {
 	public static String LOCAL_RECTANGLES_PATH = CACHE_PATH + "/rectDetails";
 	public static String LOCAL_THUMBS_PATH;
 	public static String LOCAL_TIME_STAMP_PATH = CACHE_PATH + "/timestamp";
+	public static String LAST_SYNC_TIME_FILE_PATH = LOCAL_TIME_STAMP_PATH + "/syncTime.txt";
 	public static String LOCAL_INDEX_FILE_NAME = LOCAL_TIME_STAMP_PATH
 			+ "/index.txt";
 
