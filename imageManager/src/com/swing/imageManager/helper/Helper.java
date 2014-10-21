@@ -6,6 +6,7 @@ package com.swing.imageManager.helper;
 /**
  * @author Ravi
  * 
+ *         TODO rectDetails folder can be deleted
  */
 public class Helper {
 
@@ -14,6 +15,8 @@ public class Helper {
 	public final static String ICONS_PATH = CACHE_PATH + "/icons";
 	public final static String TEMP_PATH = CACHE_PATH + "/tmp";
 	public final static String DIFF_KEYWORDS_PATH = TEMP_PATH + "/keywords";
+	public final static String TEMP_DIFF_KEY_DETAILS_PATH = TEMP_PATH
+			+ "/keyDetails";
 
 	/**
 	 * File must of the form: { "key": "YOUR_KEY", "secret": "YOUR_SECRET" }
@@ -36,6 +39,8 @@ public class Helper {
 	public final static String DBX_BASE_PATH = "/NoticeBox";
 	public final static String DBX_IMAGES_PATH = DBX_BASE_PATH + "/imageFiles";
 	public final static String DBX_INDEX_PATH = DBX_BASE_PATH + "/index";
+	public final static String DBX_KEY_DETAILS_PATH = DBX_BASE_PATH
+			+ "/keyDetails";
 	public final static String DBX_KEYWORDS_PATH = DBX_BASE_PATH + "/keywords";
 	public final static String DBX_RECTANGLES_PATH = DBX_BASE_PATH
 			+ "/rectDetails";
@@ -48,12 +53,16 @@ public class Helper {
 	public static String LOCAL_BASE_PATH;
 	public static String LOCAL_IMAGES_PATH;
 	public static String LOCAL_INDEX_PATH = CACHE_PATH + "/index";
+	public static String LOCAL_KEY_DETAILS_PATH = CACHE_PATH + "/keyDetails";
 	public static String LOCAL_KEYWORDS_PATH = CACHE_PATH + "/keywords";
 	public static String LOCAL_RECTANGLES_PATH = CACHE_PATH + "/rectDetails";
 	public static String LOCAL_THUMBS_PATH;
 	public static String LOCAL_TIME_STAMP_PATH = CACHE_PATH + "/timestamp";
-	public static String LAST_SYNC_TIME_FILE_PATH = LOCAL_TIME_STAMP_PATH + "/syncTime.txt";
+	public static String LAST_SYNC_TIME_FILE_PATH = LOCAL_TIME_STAMP_PATH
+			+ "/syncTime.txt";
 	public static String LOCAL_INDEX_FILE_NAME = LOCAL_TIME_STAMP_PATH
 			+ "/index.txt";
+
+	public static String KEYWORD_DETAIL_PATTERN = "(\\d*):(\\d*):(\\d*):(\\d*):(.*)";
 
 }
