@@ -24,7 +24,6 @@ import java.beans.PropertyChangeListener;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -38,7 +37,6 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
-import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -69,33 +67,24 @@ import javax.swing.event.DocumentListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.LongField;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.IndexWriterConfig.OpenMode;
-import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 
-import com.swing.imageManager.helper.DbxHelper;
 import com.swing.imageManager.helper.Helper;
-
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
+import com.swing.imageManager.helper.LuceneIndexer;
+import com.swing.imageManager.helper.Pair;
 
 @SuppressWarnings("serial")
 public class ImageManagerConsole extends JComponent {
@@ -156,8 +145,6 @@ public class ImageManagerConsole extends JComponent {
 	 * @throws IOException
 	 */
 	public static void main(String[] args) {
-		// new DbxHelper();
-
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(
 					Helper.DBX_DIR_LOC_FILE_NAME));
@@ -168,8 +155,6 @@ public class ImageManagerConsole extends JComponent {
 			}
 			LOGGER.info("Dropbox folder location: " + Helper.LOCAL_BASE_PATH);
 			br.close();
-		} catch (FileNotFoundException ex) {
-			closeApplication("File not found <dbx-dir-loc>: " + ex.getMessage());
 		} catch (IOException e) {
 			closeApplication("Error reading <dbx-dir-loc>: " + e.getMessage());
 		}
@@ -180,6 +165,8 @@ public class ImageManagerConsole extends JComponent {
 		} catch (Throwable e) {
 			LOGGER.error(e.getMessage());
 		}
+
+		Helper.initApplication();
 
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
@@ -456,7 +443,7 @@ public class ImageManagerConsole extends JComponent {
 							LOGGER.info("<" + str + "> added to keywords");
 							try (PrintWriter out = new PrintWriter(
 									new BufferedWriter(new FileWriter(
-											Helper.LOCAL_RECTANGLES_PATH + "/"
+											Helper.LOCAL_KEY_DETAILS_PATH + "/"
 													+ FileNames.get(FileNumber)
 													+ ".txt", true)));
 									PrintWriter out1 = new PrintWriter(
@@ -467,16 +454,35 @@ public class ImageManagerConsole extends JComponent {
 																	+ FileNames
 																			.get(FileNumber)
 																	+ ".txt",
+															true)));
+									PrintWriter out2 = new PrintWriter(
+											new BufferedWriter(
+													new FileWriter(
+															Helper.TEMP_DIFF_KEY_DETAILS_PATH
+																	+ "/"
+																	+ FileNames
+																			.get(FileNumber)
+																	+ ".txt",
 															true)))) {
 								out.println(par[0] + ":" + par[1] + ":"
 										+ par[2] + ":" + par[3] + ":" + str);
 								out1.println(str + " ");
+								out2.println("+:" + par[0] + ":" + par[1] + ":"
+										+ par[2] + ":" + par[3] + ":" + str);
 								// System.out.println("on line 491: " + par[0]
 								// + ":" + par[1] + ":" + par[2] + ":"
 								// + par[3] + ":" + str); // log
 								out.close();
 								out1.close();
-								indexFiles();
+								out2.close();
+								Helper.UploadQueue.add(new Pair(
+										Helper.LOCAL_KEY_DETAILS_PATH + "/"
+												+ FileNames.get(FileNumber)
+												+ ".txt",
+										Helper.DBX_KEY_DETAILS_PATH + "/"
+												+ FileNames.get(FileNumber)
+												+ ".txt"));
+								LuceneIndexer.indexHelper();
 							} catch (IOException e) {
 								LOGGER.info(e.getMessage());// check
 															// the
@@ -542,7 +548,7 @@ public class ImageManagerConsole extends JComponent {
 				ImageRectangles.add(new Rectangle(0, 0, 1, 1));
 				Rectangles.add(new Rectangle(0, 0, 1, 1));
 				Different.add(false);
-				modifyKeyFiles();
+				modifyKeyFiles("+:0:0:1:1:" + str);
 				paintComponent(imgLbl.getGraphics());
 			}
 		});
@@ -559,10 +565,16 @@ public class ImageManagerConsole extends JComponent {
 					String str = JOptionPane.showInputDialog(frame,
 							"Enter the new Keyword", "Edit",
 							JOptionPane.INFORMATION_MESSAGE);
+					String keyword = keyList.get(ind);
+					Rectangle rectangle = ImageRectangles.get(ind);
 					keyList.remove(ind);
 					keyList.add(ind, str);
 					LOGGER.info("<" + str + "> added to keywords");
-					modifyKeyFiles();
+					modifyKeyFiles("-:" + rectangle.x + ":" + rectangle.y + ":"
+							+ rectangle.height + ":" + rectangle.width + ":"
+							+ keyword + "+:" + rectangle.x + ":" + rectangle.y
+							+ ":" + rectangle.height + ":" + rectangle.width
+							+ ":" + str);
 					paintComponent(imgLbl.getGraphics());
 				}
 			}
@@ -577,13 +589,15 @@ public class ImageManagerConsole extends JComponent {
 							"Only a selected keyword can be deleted",
 							"Error Occured", JOptionPane.ERROR_MESSAGE);
 				} else {
-					keyList.remove(ind);
-					ImageRectangles.remove(ind);
+					String keyword = keyList.remove(ind);
+					Rectangle rectangle = ImageRectangles.remove(ind);
 					Rectangles.remove(ind);
 					Different.remove(ind);
 					LOGGER.info("<" + keyList.get(ind)
 							+ "> removed from keywords");
-					modifyKeyFiles();
+					modifyKeyFiles("-:" + rectangle.x + ":" + rectangle.y + ":"
+							+ rectangle.height + ":" + rectangle.width + ":"
+							+ keyword);
 					paintComponent(imgLbl.getGraphics());
 				}
 			}
@@ -634,16 +648,19 @@ public class ImageManagerConsole extends JComponent {
 
 	}
 
-	protected void modifyKeyFiles() {
+	protected void modifyKeyFiles(final String diff) {
 		SwingWorker<Void, Void> editFiles = new SwingWorker<Void, Void>() {
 			@Override
 			protected Void doInBackground() throws Exception {
 				try {
 					PrintWriter out = new PrintWriter(
-							Helper.LOCAL_RECTANGLES_PATH + "/"
+							Helper.LOCAL_KEY_DETAILS_PATH + "/"
 									+ FileNames.get(FileNumber) + ".txt");
 					PrintWriter out1 = new PrintWriter(
 							Helper.LOCAL_KEYWORDS_PATH + "/"
+									+ FileNames.get(FileNumber) + ".txt");
+					PrintWriter out2 = new PrintWriter(
+							Helper.TEMP_DIFF_KEY_DETAILS_PATH + "/"
 									+ FileNames.get(FileNumber) + ".txt");
 					for (int i = 0; i < ImageRectangles.size(); ++i) {
 						Rectangle rect = ImageRectangles.get(i);
@@ -652,9 +669,16 @@ public class ImageManagerConsole extends JComponent {
 								+ keyList.elementAt(i));
 						out1.println(keyList.elementAt(i) + " ");
 					}
+					out2.println(diff);
 					out.close();
 					out1.close();
-					indexFiles();
+					out2.close();
+					Helper.UploadQueue.add(new Pair(
+							Helper.LOCAL_KEY_DETAILS_PATH + "/"
+									+ FileNames.get(FileNumber) + ".txt",
+							Helper.DBX_KEY_DETAILS_PATH + "/"
+									+ FileNames.get(FileNumber) + ".txt"));
+					LuceneIndexer.indexHelper();
 				} catch (IOException e) {
 					LOGGER.info(e.getMessage());// check the
 												// exceptions
@@ -663,167 +687,6 @@ public class ImageManagerConsole extends JComponent {
 			}
 		};
 		editFiles.execute();
-	}
-
-	/**
-	 * Function initializes the required variables before indexing
-	 */
-	private void indexFiles() {
-		String docsPath = Helper.LOCAL_KEYWORDS_PATH;
-		boolean create;
-		final File indDir = new File(Helper.LOCAL_INDEX_PATH);
-		if (!indDir.exists())
-			create = true;
-		else
-			create = false;
-
-		final File docDir = new File(docsPath);
-		/*
-		 * mostly this will not occur unless there are no access permissions if
-		 * (!docDir.exists() || !docDir.canRead()) {
-		 * System.out.println("Document directory '" +docDir.getAbsolutePath()+
-		 * "' does not exist or is not readable, please check the path");
-		 * System.exit(1); }
-		 */
-
-		try {
-			Directory dir = FSDirectory.open(new File(Helper.LOCAL_INDEX_PATH));
-			Analyzer analyzer = new StandardAnalyzer(
-					Version.parseLeniently("4.0"));
-			IndexWriterConfig iwc = new IndexWriterConfig(
-					Version.parseLeniently("4.0"), analyzer);
-
-			if (create) {
-				// Create a new index in the directory, removing any
-				// previously indexed documents:
-				iwc.setOpenMode(OpenMode.CREATE);
-			} else {
-				// Add new documents to an existing index:
-				iwc.setOpenMode(OpenMode.CREATE_OR_APPEND);
-			}
-
-			// Optional: for better indexing performance, if you
-			// are indexing many documents, increase the RAM
-			// buffer. But if you do this, increase the max heap
-			// size to the JVM (eg add -Xmx512m or -Xmx1g):
-			//
-			// iwc.setRAMBufferSizeMB(256.0);
-
-			IndexWriter writer = new IndexWriter(dir, iwc);
-			indexDocs(writer, docDir);
-
-			// NOTE: if you want to maximize search performance,
-			// you can optionally call forceMerge here. This can be
-			// a terribly costly operation, so generally it's only
-			// worth it when your index is relatively static (ie
-			// you're done adding documents to it):
-			//
-			// writer.forceMerge(1);
-
-			writer.close();
-
-		} catch (IOException e) {
-			LOGGER.info(e.getMessage()); // log
-		}
-	}
-
-	/**
-	 * Function to index the files
-	 * 
-	 * @param writer
-	 * @param file
-	 */
-	private void indexDocs(IndexWriter writer, File file) {
-		// do not try to index files that cannot be read
-		if (file.canRead()) {
-			if (file.isDirectory()) {
-				String[] files = file.list();
-				// an IO error could occur
-				if (files != null) {
-					for (int i = 0; i < files.length; i++) {
-						indexDocs(writer, new File(file, files[i]));
-					}
-				}
-			} else {
-				FileInputStream fis;
-				try {
-					fis = new FileInputStream(file);
-				} catch (FileNotFoundException fnfe) {
-					LOGGER.info(fnfe.getMessage());
-					// at least on windows, some temporary files raise this
-					// exception with an "access denied" message
-					// checking if the file can be read doesn't help
-					return;
-				}
-
-				try {
-					// make a new, empty document
-					Document doc = new Document();
-
-					// Add the path of the file as a field named "path". Use a
-					// field that is indexed (i.e. searchable), but don't
-					// tokenize
-					// the field into separate words and don't index term
-					// frequency
-					// or positional information:
-					Field pathField = new StringField("path", file.getPath(),
-							Field.Store.YES);
-					doc.add(pathField);
-
-					// Add the last modified date of the file a field named
-					// "modified".
-					// Use a LongField that is indexed (i.e. efficiently
-					// filterable with
-					// NumericRangeFilter). This indexes to milli-second
-					// resolution, which
-					// is often too fine. You could instead create a number
-					// based on
-					// year/month/day/hour/minutes/seconds, down the resolution
-					// you require.
-					// For example the long value 2011021714 would mean
-					// February 17, 2011, 2-3 PM.
-					doc.add(new LongField("modified", file.lastModified(),
-							Field.Store.NO));
-
-					// Add the contents of the file to a field named "contents".
-					// Specify a Reader,
-					// so that the text of the file is tokenized and indexed,
-					// but not stored.
-					// Note that FileReader expects the file to be in UTF-8
-					// encoding.
-					// If that's not the case searching for special characters
-					// will fail.
-					doc.add(new TextField("contents", new BufferedReader(
-							new InputStreamReader(fis, "UTF-8"))));
-
-					if (writer.getConfig().getOpenMode() == OpenMode.CREATE) {
-						// New index, so we just add the document (no old
-						// document can be there):
-						// System.out.println("adding " + file); // log
-						writer.addDocument(doc);
-					} else {
-						// Existing index (an old copy of this document may have
-						// been indexed) so
-						// we use updateDocument instead to replace the old one
-						// matching the exact
-						// path, if present:
-						// System.out.println("updating " + file); // log
-						writer.updateDocument(new Term("path", file.getPath()),
-								doc);
-					}
-
-				} catch (IOException e) {
-					LOGGER.info(e.getMessage()); // log
-				} finally {
-					try {
-						fis.close();
-					} catch (IOException e) {
-						LOGGER.info(e.getMessage()); // log
-					}
-				}
-			}
-		}
-
 	}
 
 	/**
@@ -1111,7 +974,7 @@ public class ImageManagerConsole extends JComponent {
 				@SuppressWarnings("resource")
 				// remove it if needed
 				BufferedReader br = new BufferedReader(new FileReader(
-						Helper.LOCAL_RECTANGLES_PATH + "/"
+						Helper.LOCAL_KEY_DETAILS_PATH + "/"
 								+ FileNames.get(index) + ".txt"));
 				String curLine;
 				while ((curLine = br.readLine()) != null) {

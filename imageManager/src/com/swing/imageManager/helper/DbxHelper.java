@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -30,14 +31,14 @@ public class DbxHelper {
 	final static Logger LOGGER = LogManager.getLogger(DbxHelper.class);
 
 	public final static String CLASS_NAME = "DbxHelper";
-	public final static String HEADER = "In " + CLASS_NAME + ":\n";
 
 	public DbxHelper() {
 		File authInfoFile = new File(Helper.USER_AUTH_TOKEN_FILE_NAME);
 		if (!authInfoFile.exists() || authInfoFile.isDirectory())
 			getAuthInfo();
 
-		new Thread(new DbxUploader(), DbxUploader.CLASS_NAME).start();
+		Helper.scheduler.scheduleAtFixedRate(new DbxDownloader(), 0, 5,
+				TimeUnit.MINUTES);
 	}
 
 	public void getAuthInfo() {
@@ -46,8 +47,7 @@ public class DbxHelper {
 			appInfo = DbxAppInfo.Reader
 					.readFromFile(Helper.APP_AUTH_DETAILS_FILE_NAME);
 		} catch (JsonReader.FileLoadException e) {
-			LOGGER.info(HEADER + "Error reading <app-info-file>: "
-					+ e.getMessage());
+			LOGGER.info("Error reading <app-info-file>: " + e.getMessage());
 		}
 
 		// Run through Dropbox API authorization process
@@ -68,10 +68,10 @@ public class DbxHelper {
 			code = new BufferedReader(new InputStreamReader(System.in))
 					.readLine();
 		} catch (IOException e) {
-			LOGGER.info(HEADER + "Error reading <code>: " + e.getMessage());
+			LOGGER.info("Error reading <code>: " + e.getMessage());
 		}
 		if (code == null) {
-			LOGGER.info(HEADER + "Obtained <code>: null");
+			LOGGER.info("Obtained <code>: null");
 		}
 		code = code.trim();
 
@@ -79,8 +79,7 @@ public class DbxHelper {
 		try {
 			authFinish = webAuth.finish(code);
 		} catch (DbxException ex) {
-			LOGGER.info(HEADER + "Error in DbxWebAuth.start: "
-					+ ex.getMessage());
+			LOGGER.info("Error in DbxWebAuth.start: " + ex.getMessage());
 		}
 
 		LOGGER.info("Authorization complete.\n" + "- User ID: "
@@ -97,9 +96,8 @@ public class DbxHelper {
 			LOGGER.info("Saved authorization information to \""
 					+ Helper.USER_AUTH_TOKEN_FILE_NAME + "\".");
 		} catch (IOException ex) {
-			LOGGER.info(HEADER + "Error saving to <auth-file-out>: "
-					+ ex.getMessage() + "\nDumping to stderr instead: "
-					+ authInfo.toString());
+			LOGGER.info("Error saving to <auth-file-out>: " + ex.getMessage()
+					+ "\nDumping to stderr instead: " + authInfo.toString());
 		}
 	}
 
@@ -110,7 +108,7 @@ public class DbxHelper {
 			authInfo = DbxAuthInfo.Reader
 					.readFromFile(Helper.USER_AUTH_TOKEN_FILE_NAME);
 		} catch (JsonReader.FileLoadException e) {
-			LOGGER.info(HEADER + "Error reading <user-auth-token-file>: "
+			LOGGER.info("Error reading <user-auth-token-file>: "
 					+ e.getMessage());
 		}
 

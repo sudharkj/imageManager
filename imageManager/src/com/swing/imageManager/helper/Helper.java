@@ -3,6 +3,14 @@
  */
 package com.swing.imageManager.helper;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * @author Ravi
  * 
@@ -65,4 +73,27 @@ public class Helper {
 
 	public static String KEYWORD_DETAIL_PATTERN = "(\\d*):(\\d*):(\\d*):(\\d*):(.*)";
 
+	public static DbxUploadQueue UploadQueue;
+	final static Logger LOGGER = LogManager.getLogger(Helper.class);
+	public final static ScheduledExecutorService scheduler = Executors
+			.newScheduledThreadPool(1);
+
+	public static void initApplication() {
+		try {
+			getFile(LOCAL_INDEX_FILE_NAME);
+		} catch (IOException e) {
+			LOGGER.error("Error creating <" + LOCAL_INDEX_FILE_NAME + ">: "
+					+ e.getMessage());
+		}
+		UploadQueue = new DbxUploadQueue();
+		new DbxHelper();
+	}
+
+	public static File getFile(String fileName) throws IOException {
+		File file = new File(fileName);
+		if (!file.exists()) {
+			file.createNewFile();
+		}
+		return file;
+	}
 }

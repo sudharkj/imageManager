@@ -45,9 +45,20 @@ public class DbxDownloader implements Runnable {
 
 	@Override
 	public void run() {
-		File deltaCursorFile = new File(Helper.DBX_DELTA_CURSOR_FILE_NAME);
-		File syncTimeFile = new File(Helper.LAST_SYNC_TIME_FILE_PATH);
+		download();
+	}
+
+	private synchronized void download() {
+		File deltaCursorFile = null;
+		File syncTimeFile = null;
 		String lastSyncedStrTime = null;
+
+		try {
+			deltaCursorFile = Helper.getFile(Helper.DBX_DELTA_CURSOR_FILE_NAME);
+			syncTimeFile = Helper.getFile(Helper.LAST_SYNC_TIME_FILE_PATH);
+		} catch (IOException e) {
+			LOGGER.error("Error creating initial files: " + e.getMessage());
+		}
 
 		// load cursor
 		try {
@@ -87,7 +98,9 @@ public class DbxDownloader implements Runnable {
 				deltaEntry = _dbxClient.getDeltaWithPathPrefix(_cursor,
 						Helper.DBX_BASE_PATH);
 				for (DbxDelta.Entry<DbxEntry> entry : deltaEntry.entries) {
-					manageEntry(entry.metadata.asFile());
+					if (entry.metadata.isFile()) {
+						manageEntry(entry.metadata.asFile());
+					}
 				}
 			} while (deltaEntry.hasMore);
 			_cursor = deltaEntry.cursor;
@@ -118,7 +131,8 @@ public class DbxDownloader implements Runnable {
 			return;
 		}
 
-		// TODO index files after download and upload to main server
+		// TODO conditional indexing after download and upload to main server
+		LuceneIndexer.indexHelper();
 	}
 
 	private String getContent(File file) throws IOException {
@@ -141,11 +155,6 @@ public class DbxDownloader implements Runnable {
 		if (parentPath.contains(Helper.DBX_IMAGES_PATH)) {
 			localFile = new File(Helper.LOCAL_IMAGES_PATH + "/" + fileName);
 			useLastSyncedTime = false;
-		} else if (parentPath.contains(Helper.DBX_THUMBS_PATH)) {
-			localFile = new File(Helper.LOCAL_THUMBS_PATH + "/" + fileName);
-			useLastSyncedTime = false;
-		} else if (parentPath.contains(Helper.DBX_INDEX_PATH)) {
-			localFile = new File(Helper.LOCAL_INDEX_PATH + "/" + fileName);
 		} else if (parentPath.contains(Helper.DBX_KEY_DETAILS_PATH)) {
 			localFile = new File(Helper.LOCAL_KEY_DETAILS_PATH + "/" + fileName);
 			changedKeyDetails = true;
@@ -187,6 +196,8 @@ public class DbxDownloader implements Runnable {
 							+ e.getMessage());
 					throw new Exception(e.getMessage());
 				}
+				Helper.UploadQueue.add(new Pair(localFile.getAbsolutePath(),
+						dbxFile.path));
 			}
 		}
 	}
@@ -212,11 +223,11 @@ public class DbxDownloader implements Runnable {
 			while ((str = br.readLine()) != null) {
 				str = str.trim();
 				if (str.charAt(0) == '+')
-					additions.add(str.substring(1));
+					additions.add(str.substring(2));
 				else
-					deletions.add(str.substring(1));
+					deletions.add(str.substring(2));
 			}
-			if (histFile.delete())
+			if (!histFile.delete())
 				LOGGER.info("Couldn't delete <" + histFile.getAbsolutePath()
 						+ ">");
 			br.close();
@@ -239,6 +250,17 @@ public class DbxDownloader implements Runnable {
 		Matcher m;
 		for (String keyDetail : downloaded) {
 			m = p.matcher(keyDetail);
+			if (!m.find()) {
+				writer.close();
+				writer1.close();
+
+				// for debugging purpose
+				LOGGER.error("Wanted: " + Helper.KEYWORD_DETAIL_PATTERN);
+				LOGGER.error("Got: " + keyDetail);
+
+				throw new IOException("Illegal format");
+			}
+
 			String key = m.group(5);
 			writer.append(keyDetail);
 			writer1.append(key);
