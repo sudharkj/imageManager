@@ -3,7 +3,6 @@ package com.swing.imageManager;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.EventQueue;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -28,7 +27,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -37,6 +35,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -59,7 +58,6 @@ import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingWorker;
-import javax.swing.UIManager;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
@@ -69,22 +67,12 @@ import javax.swing.event.ListSelectionListener;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.queryparser.classic.QueryParser;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
-import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.util.Version;
 
-import com.swing.imageManager.helper.Helper;
-import com.swing.imageManager.helper.LuceneIndexer;
-import com.swing.imageManager.helper.Pair;
+import com.swing.imageManager.globals.Constants;
+import com.swing.imageManager.globals.Helper;
+import com.swing.imageManager.lib.lucene.LuceneHelper;
+import com.swing.imageManager.lib.lucene.LuceneIndexer;
+import com.swing.imageManager.lib.model.Pair;
 
 @SuppressWarnings("serial")
 public class ImageManagerConsole extends JComponent {
@@ -92,7 +80,7 @@ public class ImageManagerConsole extends JComponent {
 	final static Logger LOGGER = LogManager
 			.getLogger(ImageManagerConsole.class);
 
-	private static ArrayList<String> FileNames;
+	private static List<String> FileNames;
 	private String lang[] = { "eng", "hin" };
 	private int FileNumber;
 	private ArrayList<Rectangle> ImageRectangles;
@@ -102,8 +90,6 @@ public class ImageManagerConsole extends JComponent {
 	private Point StartPoint, EndPoint;
 	private String SearchText;
 	private int prevSelectedInd;
-
-	private String field = "contents";
 
 	// size variables
 	private final int LabelHeight = 15;
@@ -119,7 +105,7 @@ public class ImageManagerConsole extends JComponent {
 	private int ImageHeight;
 	private final int ThumbsPaneHeight = 65;
 
-	private JFrame frame;
+	public JFrame frame;
 	private JLabel imgLbl;
 	private DefaultListModel<String> keyList;
 	private JList<ImageIcon> thumbsList;
@@ -138,57 +124,8 @@ public class ImageManagerConsole extends JComponent {
 	private JLabel lblLanguage;
 	private JComboBox<String> LanguageComboBox;
 
-	/**
-	 * Launch the application.
-	 * 
-	 * @param args
-	 * @throws IOException
-	 */
-	public static void main(String[] args) {
-		try {
-			BufferedReader br = new BufferedReader(new FileReader(
-					Helper.DBX_DIR_LOC_FILE_NAME));
-			Helper.LOCAL_BASE_PATH = br.readLine();
-			if (Helper.LOCAL_BASE_PATH.trim().isEmpty()) {
-				closeApplication("Dropbox location not set in "
-						+ Helper.DBX_DIR_LOC_FILE_NAME);
-			}
-			LOGGER.info("Dropbox folder location: " + Helper.LOCAL_BASE_PATH);
-			br.close();
-		} catch (IOException e) {
-			closeApplication("Error reading <dbx-dir-loc>: " + e.getMessage());
-		}
-
-		try {
-			UIManager
-					.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
-		} catch (Throwable e) {
-			LOGGER.error(e.getMessage());
-		}
-
-		Helper.initApplication();
-
-		EventQueue.invokeLater(new Runnable() {
-			public void run() {
-				try {
-					ImageManagerConsole window = new ImageManagerConsole();
-					window.frame.setVisible(true);
-				} catch (Exception e) {
-					closeApplication(e.getMessage());
-				}
-			}
-		});
-	}
-
-	/**
-	 * closeApplication
-	 * 
-	 * @param message
-	 */
-	private static void closeApplication(String message) {
-		LOGGER.info(message);
-		LOGGER.info("Aborting system");
-		System.exit(ABORT);
+	public void setVisible(boolean value) {
+		frame.setVisible(value);
 	}
 
 	/**
@@ -197,8 +134,8 @@ public class ImageManagerConsole extends JComponent {
 	 * @throws IOException
 	 */
 	public ImageManagerConsole() throws IOException {
-		Helper.LOCAL_IMAGES_PATH = Helper.LOCAL_BASE_PATH + "/imageFiles";
-		Helper.LOCAL_THUMBS_PATH = Helper.LOCAL_BASE_PATH + "/thumbImages";
+		Constants.LOCAL_IMAGES_PATH = Constants.LOCAL_BASE_PATH + "/imageFiles";
+		Constants.LOCAL_THUMBS_PATH = Constants.LOCAL_BASE_PATH + "/thumbImages";
 
 		FileNames = new ArrayList<>();
 		ImageRectangles = new ArrayList<Rectangle>();
@@ -215,7 +152,7 @@ public class ImageManagerConsole extends JComponent {
 
 		initialize();
 
-		loadFiles(Paths.get(Helper.LOCAL_IMAGES_PATH));
+		loadFiles(Paths.get(Constants.LOCAL_IMAGES_PATH));
 		loadImage(0);
 
 		MouseDown = false;
@@ -255,11 +192,11 @@ public class ImageManagerConsole extends JComponent {
 		searchPanel = new JPanel();
 
 		btnRefresh = new JButton("");
-		btnRefresh.setIcon(new ImageIcon(Helper.REFRESH_ICON_PATH));
+		btnRefresh.setIcon(new ImageIcon(Constants.REFRESH_ICON_PATH));
 		btnRefresh.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				try {
-					loadFiles(Paths.get(Helper.LOCAL_IMAGES_PATH));
+					loadFiles(Paths.get(Constants.LOCAL_IMAGES_PATH));
 					if (!thumbscon.isEmpty()) {
 						loadImage(0);
 						LOGGER.info(FileNames.get(0) + " is loaded");
@@ -295,7 +232,7 @@ public class ImageManagerConsole extends JComponent {
 					private void modify() {
 						SearchText = searchTextField.getText();
 						try {
-							loadFiles(Paths.get(Helper.LOCAL_IMAGES_PATH));
+							loadFiles(Paths.get(Constants.LOCAL_IMAGES_PATH));
 						} catch (IOException e) {
 							LOGGER.info(e.getMessage()); // log
 						}
@@ -318,7 +255,7 @@ public class ImageManagerConsole extends JComponent {
 		searchPanel.add(LanguageComboBox);
 
 		JButton showLog = new JButton();
-		showLog.setIcon(new ImageIcon(Helper.LOG_ICON_PATH));
+		showLog.setIcon(new ImageIcon(Constants.LOG_ICON_PATH));
 		showLog.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				LOGGER.info("Feature yet to be implemented");
@@ -419,7 +356,7 @@ public class ImageManagerConsole extends JComponent {
 							BufferedImage extracted = (BufferedImage) ActualImage;
 							extracted = extracted.getSubimage(par[0], par[1],
 									par[2], par[3]);
-							String fileName = Helper.TEMP_PATH + "/buffer"
+							String fileName = Constants.TEMP_PATH + "/buffer"
 									+ Rectangles.size();
 							File fp = new File(fileName + ".png");
 							ImageIO.write(extracted, "png", fp);
@@ -443,13 +380,13 @@ public class ImageManagerConsole extends JComponent {
 							LOGGER.info("<" + str + "> added to keywords");
 							try (PrintWriter out = new PrintWriter(
 									new BufferedWriter(new FileWriter(
-											Helper.LOCAL_KEY_DETAILS_PATH + "/"
+											Constants.LOCAL_KEY_DETAILS_PATH + "/"
 													+ FileNames.get(FileNumber)
 													+ ".txt", true)));
 									PrintWriter out1 = new PrintWriter(
 											new BufferedWriter(
 													new FileWriter(
-															Helper.LOCAL_KEYWORDS_PATH
+															Constants.LOCAL_KEYWORDS_PATH
 																	+ "/"
 																	+ FileNames
 																			.get(FileNumber)
@@ -458,7 +395,7 @@ public class ImageManagerConsole extends JComponent {
 									PrintWriter out2 = new PrintWriter(
 											new BufferedWriter(
 													new FileWriter(
-															Helper.TEMP_DIFF_KEY_DETAILS_PATH
+															Constants.TEMP_DIFF_KEY_DETAILS_PATH
 																	+ "/"
 																	+ FileNames
 																			.get(FileNumber)
@@ -475,11 +412,11 @@ public class ImageManagerConsole extends JComponent {
 								out.close();
 								out1.close();
 								out2.close();
-								Helper.UploadQueue.add(new Pair(
-										Helper.LOCAL_KEY_DETAILS_PATH + "/"
+								Helper.UploadQueue.enque(new Pair(
+										Constants.LOCAL_KEY_DETAILS_PATH + "/"
 												+ FileNames.get(FileNumber)
 												+ ".txt",
-										Helper.DBX_KEY_DETAILS_PATH + "/"
+										Constants.DBX_KEY_DETAILS_PATH + "/"
 												+ FileNames.get(FileNumber)
 												+ ".txt"));
 								LuceneIndexer.indexHelper();
@@ -489,8 +426,7 @@ public class ImageManagerConsole extends JComponent {
 															// exceptions
 							}
 							keyList.addElement(str);
-							fp = new File(fileName + ".txt");
-							fp.delete();
+							new File(fileName + ".txt").delete();
 							return null;
 						}
 					};
@@ -553,7 +489,7 @@ public class ImageManagerConsole extends JComponent {
 			}
 		});
 		JButton edit = new JButton("");
-		edit.setIcon(new ImageIcon(Helper.EDIT_ICON_PATH));
+		edit.setIcon(new ImageIcon(Constants.EDIT_ICON_PATH));
 		edit.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				int ind = keywrdList.getSelectedIndex();
@@ -654,13 +590,13 @@ public class ImageManagerConsole extends JComponent {
 			protected Void doInBackground() throws Exception {
 				try {
 					PrintWriter out = new PrintWriter(
-							Helper.LOCAL_KEY_DETAILS_PATH + "/"
+							Constants.LOCAL_KEY_DETAILS_PATH + "/"
 									+ FileNames.get(FileNumber) + ".txt");
 					PrintWriter out1 = new PrintWriter(
-							Helper.LOCAL_KEYWORDS_PATH + "/"
+							Constants.LOCAL_KEYWORDS_PATH + "/"
 									+ FileNames.get(FileNumber) + ".txt");
 					PrintWriter out2 = new PrintWriter(
-							Helper.TEMP_DIFF_KEY_DETAILS_PATH + "/"
+							Constants.TEMP_DIFF_KEY_DETAILS_PATH + "/"
 									+ FileNames.get(FileNumber) + ".txt");
 					for (int i = 0; i < ImageRectangles.size(); ++i) {
 						Rectangle rect = ImageRectangles.get(i);
@@ -673,10 +609,10 @@ public class ImageManagerConsole extends JComponent {
 					out.close();
 					out1.close();
 					out2.close();
-					Helper.UploadQueue.add(new Pair(
-							Helper.LOCAL_KEY_DETAILS_PATH + "/"
+					Helper.UploadQueue.enque(new Pair(
+							Constants.LOCAL_KEY_DETAILS_PATH + "/"
 									+ FileNames.get(FileNumber) + ".txt",
-							Helper.DBX_KEY_DETAILS_PATH + "/"
+							Constants.DBX_KEY_DETAILS_PATH + "/"
 									+ FileNames.get(FileNumber) + ".txt"));
 					LuceneIndexer.indexHelper();
 				} catch (IOException e) {
@@ -816,7 +752,7 @@ public class ImageManagerConsole extends JComponent {
 					// proper format
 					// System.out.format("%s (%s) added to the ArrayList\n",fileName,file.toString());
 					// // log
-					curImage = ImageIO.read(new File(Helper.LOCAL_THUMBS_PATH
+					curImage = ImageIO.read(new File(Constants.LOCAL_THUMBS_PATH
 							+ "\\" + fileName));
 					thumbscon.addElement(new ImageIcon(curImage));
 					FileNames.add(fileName);
@@ -858,84 +794,31 @@ public class ImageManagerConsole extends JComponent {
 	 * @param path
 	 */
 	private void loadSelectedFiles(Path path) {
-		SwingWorker<Void, Void> searching = new SwingWorker<Void, Void>() {
+		SwingWorker<Void, List<String>> searching = new SwingWorker<Void, List<String>>() {
 			@Override
 			protected Void doInBackground() throws Exception {
-				IndexReader reader = DirectoryReader.open(FSDirectory
-						.open(new File(Helper.LOCAL_INDEX_PATH)));
-				IndexSearcher searcher = new IndexSearcher(reader);
-				Analyzer analyzer = new StandardAnalyzer(
-						Version.parseLeniently("4.0"));
 
-				QueryParser parser = new QueryParser(
-						Version.parseLeniently("4.0"), field, analyzer);
-				String line = SearchText;
+				publish(LuceneHelper.doSearch(SearchText));
 
-				Query query = parser.parse(line);
-				// System.out.println("Searching for: " +
-				// query.toString(field)); // log
-
-				doPagingSearch(new BufferedReader(new InputStreamReader(
-						System.in, "UTF-8")), searcher, query, 10, false, true);
-
-				reader.close();
 				return null;
 			}
 
-			private void doPagingSearch(BufferedReader in,
-					IndexSearcher searcher, Query query, int hitsPerPage,
-					boolean raw, boolean interactive) {
-				TopDocs results;
-				try {
-					results = searcher.search(query, 5 * hitsPerPage);
-					ScoreDoc[] hits = results.scoreDocs;
-
-					int numTotalHits = results.totalHits;
-					// System.out.println(numTotalHits
-					// + " total matching documents"); // log
-
-					int start = 0;
-					int end = Math.min(numTotalHits, hitsPerPage);
-
-					while (start < end) {
-						end = Math.min(hits.length, start + hitsPerPage);
-
-						for (int i = start; i < end; i++) {
-							Document doc = searcher.doc(hits[i].doc);
-							String path = doc.get("path");
-							if (path != null) {
-								// System.out.println((i+1) + ". " + path); //
-								// log
-								String file = path.substring(
-										path.lastIndexOf('\\') + 1,
-										path.lastIndexOf('.'));// System.out.println(new
-																// File(ThumbsPath+'\\'+file).getAbsolutePath());
-																// // log
-								thumbscon
-										.addElement(new ImageIcon(
-												Helper.LOCAL_THUMBS_PATH + '\\'
-														+ file));
-								FileNames.add(file);
-							} else {
-								throw new IOException("No defined path");
-							}
-
-						}
-
-						if (end == 0) {
-							break;
-						}
-
-						if (numTotalHits > end) {
-							if (start + hitsPerPage < numTotalHits)
-								start += hitsPerPage;
-							end = Math.min(numTotalHits, start + hitsPerPage);
-						} else
-							break;
-					}
-				} catch (Exception e) {
-					LOGGER.info(e.getMessage()); // log
+			@Override
+			protected void process(List<List<String>> arg0) {
+				// TODO Auto-generated method stub
+				FileNames.clear();
+				thumbscon.clear();
+				for (String file : arg0.get(0)) {
+					FileNames.add(file);
+					thumbscon.addElement(new ImageIcon(Constants.LOCAL_THUMBS_PATH
+							+ '\\' + file));
 				}
+			}
+
+			@Override
+			protected void done() {
+				// TODO Auto-generated method stub
+				LOGGER.debug("Searching Complete");
 			}
 
 		};
@@ -961,7 +844,7 @@ public class ImageManagerConsole extends JComponent {
 					+ ")");
 			title.setTitleJustification(TitledBorder.CENTER);
 			imgPane.setBorder(title);
-			ActualImage = ImageIO.read(new File(Helper.LOCAL_IMAGES_PATH + "/"
+			ActualImage = ImageIO.read(new File(Constants.LOCAL_IMAGES_PATH + "/"
 					+ FileNames.get(index)));
 			ActualImageWidth = ActualImage.getWidth(null);
 			ActualImageHeight = ActualImage.getHeight(null);
@@ -974,7 +857,7 @@ public class ImageManagerConsole extends JComponent {
 				@SuppressWarnings("resource")
 				// remove it if needed
 				BufferedReader br = new BufferedReader(new FileReader(
-						Helper.LOCAL_KEY_DETAILS_PATH + "/"
+						Constants.LOCAL_KEY_DETAILS_PATH + "/"
 								+ FileNames.get(index) + ".txt"));
 				String curLine;
 				while ((curLine = br.readLine()) != null) {
@@ -1106,13 +989,13 @@ public class ImageManagerConsole extends JComponent {
 		if (index == 0)
 			throw new IOException();
 		Image image = ImageIO.read(
-				new File(Helper.LOCAL_IMAGES_PATH + "\\" + fileName))
+				new File(Constants.LOCAL_IMAGES_PATH + "\\" + fileName))
 				.getScaledInstance(40, 40, Image.SCALE_SMOOTH);
 		BufferedImage resizedImage = new BufferedImage(40, 40,
 				BufferedImage.TYPE_INT_ARGB);
 		resizedImage.getGraphics().drawImage(image, 0, 0, null);
 		ImageIO.write(resizedImage, fileName.substring(index + 1), new File(
-				Helper.LOCAL_THUMBS_PATH + "/" + fileName));
+				Constants.LOCAL_THUMBS_PATH + "/" + fileName));
 
 		// this will add the items
 		if (SearchText.trim().isEmpty()) {

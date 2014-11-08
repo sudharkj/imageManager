@@ -1,4 +1,4 @@
-package com.swing.imageManager.helper;
+package com.swing.imageManager.lib.dropbox;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -12,6 +12,9 @@ import com.dropbox.core.DbxClient;
 import com.dropbox.core.DbxEntry;
 import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxWriteMode;
+import com.swing.imageManager.globals.Constants;
+import com.swing.imageManager.globals.Helper;
+import com.swing.imageManager.lib.model.Pair;
 
 public class DbxUploader implements Runnable {
 
@@ -37,7 +40,7 @@ public class DbxUploader implements Runnable {
 		long startTime = 0, curTime = 0;
 
 		try {
-			entry = _dbxClient.getMetadata(Helper.DBX_INDEX_FILE_NAME);
+			entry = _dbxClient.getMetadata(Constants.DBX_INDEX_FILE_NAME);
 		} catch (DbxException e) {
 			LOGGER.error("Unknown exception occured: " + e.getMessage());
 			return;
@@ -52,16 +55,37 @@ public class DbxUploader implements Runnable {
 			}
 
 			startTime = new Date().getTime();
-			Pair current = Helper.UploadQueue.get(0);
-			Helper.UploadQueue.remove(0);
+			Pair current = Helper.UploadQueue.top();
+			String from = current.getKey();
+			String to = current.getValue();
+			Helper.UploadQueue.deque();
 			try {
-				uploadFile(current.getKey(), current.getValue());
+				uploadFile(from, to);
 			} catch (DbxException | IOException e) {
 				LOGGER.info("Error uploading file [" + current.getKey()
 						+ "] to [" + current.getValue() + "]");
-				Helper.UploadQueue.add(current);
+				Helper.UploadQueue.enque(current);
 			}
 			curTime = new Date().getTime();
+
+			// delete buffer file associated with the uploaded file
+			if (from.contains(Constants.LOCAL_KEY_DETAILS_PATH)) {
+				File histFile = new File(Constants.TEMP_DIFF_KEY_DETAILS_PATH
+						+ "/" + from.substring(from.lastIndexOf("/")));
+				if (histFile.exists()) {
+					if (histFile.delete()) {
+						LOGGER.info("Deleted <" + histFile.getAbsolutePath()
+								+ "> on successful upload of <" + from + ">");
+					} else {
+						LOGGER.info("Couldn't deleted <"
+								+ histFile.getAbsolutePath()
+								+ "> on successful upload of <" + from + ">");
+					}
+				} else {
+					LOGGER.debug("<" + histFile.getAbsolutePath()
+							+ "> do not exist");
+				}
+			}
 		}
 	}
 
@@ -77,16 +101,16 @@ public class DbxUploader implements Runnable {
 				|| (curTime - startTime) > uploadLimit) {
 			startTime = curTime = 0;
 
-			uploadFile(Helper.LOCAL_INDEX_FILE_NAME, Helper.DBX_INDEX_FILE_NAME);
-			entry = _dbxClient.getMetadata(Helper.DBX_INDEX_FILE_NAME);
+			uploadFile(Constants.LOCAL_INDEX_FILE_NAME, Constants.DBX_INDEX_FILE_NAME);
+			entry = _dbxClient.getMetadata(Constants.DBX_INDEX_FILE_NAME);
 			listing = _dbxClient
-					.getMetadataWithChildren(Helper.DBX_TIME_STAMP_PATH);
+					.getMetadataWithChildren(Constants.DBX_TIME_STAMP_PATH);
 
 			if (listing != null && listing.children.size() > 1) {
 				// delete the conflicted files created during upload
 				for (DbxEntry child : listing.children) {
 					if (!child.path
-							.equalsIgnoreCase(Helper.DBX_INDEX_FILE_NAME)) {
+							.equalsIgnoreCase(Constants.DBX_INDEX_FILE_NAME)) {
 						_dbxClient.delete(child.path);
 					}
 				}
@@ -94,7 +118,7 @@ public class DbxUploader implements Runnable {
 				// get the modified time of the lock (index file)
 				time = 0;
 				indexMetadata = _dbxClient
-						.getMetadata(Helper.DBX_INDEX_FILE_NAME);
+						.getMetadata(Constants.DBX_INDEX_FILE_NAME);
 				if (indexMetadata != null)
 					time = indexMetadata.asFile().lastModified.getTime();
 

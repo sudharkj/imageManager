@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.swing.imageManager.helper;
+package com.swing.imageManager.lib.dropbox;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -21,6 +21,8 @@ import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.DbxWebAuthNoRedirect;
 import com.dropbox.core.json.JsonReader;
+import com.swing.imageManager.globals.Constants;
+import com.swing.imageManager.globals.Helper;
 
 /**
  * @author Ravi
@@ -33,11 +35,13 @@ public class DbxHelper {
 	public final static String CLASS_NAME = "DbxHelper";
 
 	public DbxHelper() {
-		File authInfoFile = new File(Helper.USER_AUTH_TOKEN_FILE_NAME);
+		File authInfoFile = new File(Constants.USER_AUTH_TOKEN_FILE_NAME);
 		if (!authInfoFile.exists() || authInfoFile.isDirectory())
 			getAuthInfo();
 
 		Helper.scheduler.scheduleAtFixedRate(new DbxDownloader(), 0, 5,
+				TimeUnit.MINUTES);
+		Helper.scheduler.scheduleAtFixedRate(new DbxUploader(), 0, 5,
 				TimeUnit.MINUTES);
 	}
 
@@ -45,7 +49,7 @@ public class DbxHelper {
 		DbxAppInfo appInfo = null;
 		try {
 			appInfo = DbxAppInfo.Reader
-					.readFromFile(Helper.APP_AUTH_DETAILS_FILE_NAME);
+					.readFromFile(Constants.APP_AUTH_DETAILS_FILE_NAME);
 		} catch (JsonReader.FileLoadException e) {
 			LOGGER.info("Error reading <app-info-file>: " + e.getMessage());
 		}
@@ -92,9 +96,9 @@ public class DbxHelper {
 
 		try {
 			DbxAuthInfo.Writer.writeToFile(authInfo,
-					Helper.USER_AUTH_TOKEN_FILE_NAME);
+					Constants.USER_AUTH_TOKEN_FILE_NAME);
 			LOGGER.info("Saved authorization information to \""
-					+ Helper.USER_AUTH_TOKEN_FILE_NAME + "\".");
+					+ Constants.USER_AUTH_TOKEN_FILE_NAME + "\".");
 		} catch (IOException ex) {
 			LOGGER.info("Error saving to <auth-file-out>: " + ex.getMessage()
 					+ "\nDumping to stderr instead: " + authInfo.toString());
@@ -106,7 +110,7 @@ public class DbxHelper {
 		DbxAuthInfo authInfo = null;
 		try {
 			authInfo = DbxAuthInfo.Reader
-					.readFromFile(Helper.USER_AUTH_TOKEN_FILE_NAME);
+					.readFromFile(Constants.USER_AUTH_TOKEN_FILE_NAME);
 		} catch (JsonReader.FileLoadException e) {
 			LOGGER.info("Error reading <user-auth-token-file>: "
 					+ e.getMessage());

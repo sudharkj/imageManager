@@ -1,4 +1,4 @@
-package com.swing.imageManager.helper;
+package com.swing.imageManager.lib.lucene;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -6,6 +6,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,44 +18,37 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.LongField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.Term;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 
-public class LuceneIndexer implements Runnable {
+import com.swing.imageManager.globals.Constants;
 
-	final static Logger LOGGER = LogManager.getLogger(LuceneIndexer.class);
+public class LuceneHelper {
 
-	private static long count = 0;
-
-	public LuceneIndexer() {
-	}
-
-	public static void indexHelper() {
-		++count;
-		if (count == 1)
-			new Thread(new LuceneIndexer()).start();
-	}
-
-	@Override
-	public void run() {
-		while (count > 0) {
-			--count;
-			indexFiles();
-		}
-	}
+	final static Logger LOGGER = LogManager.getLogger(LuceneHelper.class);
+	
+	private static String field = "contents";
 
 	/**
 	 * Function initializes the required variables before indexing
 	 */
-	private void indexFiles() {
-		String docsPath = Helper.LOCAL_KEYWORDS_PATH;
+	public static void indexFiles() {
+		String docsPath = Constants.LOCAL_KEYWORDS_PATH;
 		boolean create;
-		final File indDir = new File(Helper.LOCAL_INDEX_PATH);
+		final File indDir = new File(Constants.LOCAL_INDEX_PATH);
 		if (!indDir.exists())
 			create = true;
 		else
@@ -69,7 +64,7 @@ public class LuceneIndexer implements Runnable {
 		 */
 
 		try {
-			Directory dir = FSDirectory.open(new File(Helper.LOCAL_INDEX_PATH));
+			Directory dir = FSDirectory.open(new File(Constants.LOCAL_INDEX_PATH));
 			Analyzer analyzer = new StandardAnalyzer(
 					Version.parseLeniently("4.0"));
 			IndexWriterConfig iwc = new IndexWriterConfig(
@@ -115,7 +110,7 @@ public class LuceneIndexer implements Runnable {
 	 * @param writer
 	 * @param file
 	 */
-	private void indexDocs(IndexWriter writer, File file) {
+	private static void indexDocs(IndexWriter writer, File file) {
 		// do not try to index files that cannot be read
 		if (file.canRead()) {
 			if (file.isDirectory()) {
@@ -206,6 +201,83 @@ public class LuceneIndexer implements Runnable {
 			}
 		}
 
+	}
+	
+	public static List<String> doSearch(String searchText) throws IOException, ParseException {
+		IndexReader reader = DirectoryReader.open(FSDirectory
+				.open(new File(Constants.LOCAL_INDEX_PATH)));
+		IndexSearcher searcher = new IndexSearcher(reader);
+		Analyzer analyzer = new StandardAnalyzer(
+				Version.parseLeniently("4.0"));
+
+		QueryParser parser = new QueryParser(
+				Version.parseLeniently("4.0"), field, analyzer);
+		String line = searchText;
+
+		Query query = parser.parse(line);
+		// System.out.println("Searching for: " +
+		// query.toString(field)); // log
+		
+		List<String> fileNames = doPagingSearch(new BufferedReader(new InputStreamReader(
+				System.in, "UTF-8")), searcher, query, 10, false, true);
+
+		reader.close();
+		
+		return fileNames;
+	}
+
+	private static List<String> doPagingSearch(BufferedReader in,
+			IndexSearcher searcher, Query query, int hitsPerPage,
+			boolean raw, boolean interactive) {
+		TopDocs results;
+		List<String> fileNames = new ArrayList<String>();
+		try {
+			results = searcher.search(query, 5 * hitsPerPage);
+			ScoreDoc[] hits = results.scoreDocs;
+
+			int numTotalHits = results.totalHits;
+			// System.out.println(numTotalHits
+			// + " total matching documents"); // log
+
+			int start = 0;
+			int end = Math.min(numTotalHits, hitsPerPage);
+
+			while (start < end) {
+				end = Math.min(hits.length, start + hitsPerPage);
+
+				for (int i = start; i < end; i++) {
+					Document doc = searcher.doc(hits[i].doc);
+					String path = doc.get("path");
+					if (path != null) {
+						// System.out.println((i+1) + ". " + path); //
+						// log
+						String file = path.substring(
+								path.lastIndexOf('\\') + 1,
+								path.lastIndexOf('.'));// System.out.println(new
+														// File(ThumbsPath+'\\'+file).getAbsolutePath());
+														// // log
+						fileNames.add(file);
+					} else {
+						throw new IOException("No defined path");
+					}
+
+				}
+
+				if (end == 0) {
+					break;
+				}
+
+				if (numTotalHits > end) {
+					if (start + hitsPerPage < numTotalHits)
+						start += hitsPerPage;
+					end = Math.min(numTotalHits, start + hitsPerPage);
+				} else
+					break;
+			}
+		} catch (Exception e) {
+			LOGGER.info(e.getMessage()); // log
+		}
+		return fileNames;
 	}
 
 }

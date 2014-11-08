@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.swing.imageManager.helper;
+package com.swing.imageManager.lib.dropbox;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -23,6 +23,10 @@ import com.dropbox.core.DbxClient;
 import com.dropbox.core.DbxDelta;
 import com.dropbox.core.DbxEntry;
 import com.dropbox.core.DbxException;
+import com.swing.imageManager.globals.Constants;
+import com.swing.imageManager.globals.Helper;
+import com.swing.imageManager.lib.lucene.LuceneIndexer;
+import com.swing.imageManager.lib.model.Pair;
 
 /**
  * @author Ravi
@@ -54,8 +58,8 @@ public class DbxDownloader implements Runnable {
 		String lastSyncedStrTime = null;
 
 		try {
-			deltaCursorFile = Helper.getFile(Helper.DBX_DELTA_CURSOR_FILE_NAME);
-			syncTimeFile = Helper.getFile(Helper.LAST_SYNC_TIME_FILE_PATH);
+			deltaCursorFile = Helper.getFile(Constants.DBX_DELTA_CURSOR_FILE_NAME);
+			syncTimeFile = Helper.getFile(Constants.LAST_SYNC_TIME_FILE_PATH);
 		} catch (IOException e) {
 			LOGGER.error("Error creating initial files: " + e.getMessage());
 		}
@@ -96,7 +100,7 @@ public class DbxDownloader implements Runnable {
 			DbxDelta<DbxEntry> deltaEntry = null;
 			do {
 				deltaEntry = _dbxClient.getDeltaWithPathPrefix(_cursor,
-						Helper.DBX_BASE_PATH);
+						Constants.DBX_BASE_PATH);
 				for (DbxDelta.Entry<DbxEntry> entry : deltaEntry.entries) {
 					if (entry.metadata.isFile()) {
 						manageEntry(entry.metadata.asFile());
@@ -152,11 +156,11 @@ public class DbxDownloader implements Runnable {
 		String fileName = path.substring(path.lastIndexOf('/') + 1);
 		boolean changedKeyDetails = false;
 
-		if (parentPath.contains(Helper.DBX_IMAGES_PATH)) {
-			localFile = new File(Helper.LOCAL_IMAGES_PATH + "/" + fileName);
+		if (parentPath.contains(Constants.DBX_IMAGES_PATH)) {
+			localFile = new File(Constants.LOCAL_IMAGES_PATH + "/" + fileName);
 			useLastSyncedTime = false;
-		} else if (parentPath.contains(Helper.DBX_KEY_DETAILS_PATH)) {
-			localFile = new File(Helper.LOCAL_KEY_DETAILS_PATH + "/" + fileName);
+		} else if (parentPath.contains(Constants.DBX_KEY_DETAILS_PATH)) {
+			localFile = new File(Constants.LOCAL_KEY_DETAILS_PATH + "/" + fileName);
 			changedKeyDetails = true;
 		} else {
 			return;
@@ -196,7 +200,7 @@ public class DbxDownloader implements Runnable {
 							+ e.getMessage());
 					throw new Exception(e.getMessage());
 				}
-				Helper.UploadQueue.add(new Pair(localFile.getAbsolutePath(),
+				Helper.UploadQueue.enque(new Pair(localFile.getAbsolutePath(),
 						dbxFile.path));
 			}
 		}
@@ -210,13 +214,13 @@ public class DbxDownloader implements Runnable {
 		BufferedReader br = null;
 		String str;
 
-		br = new BufferedReader(new FileReader(Helper.LOCAL_KEY_DETAILS_PATH
+		br = new BufferedReader(new FileReader(Constants.LOCAL_KEY_DETAILS_PATH
 				+ "/" + fileName));
 		while ((str = br.readLine()) != null)
 			downloaded.add(str.trim());
 		br.close();
 
-		File histFile = new File(Helper.TEMP_DIFF_KEY_DETAILS_PATH + "/"
+		File histFile = new File(Constants.TEMP_DIFF_KEY_DETAILS_PATH + "/"
 				+ fileName);
 		if (histFile.exists()) {
 			br = new BufferedReader(new FileReader(histFile));
@@ -227,11 +231,8 @@ public class DbxDownloader implements Runnable {
 				else
 					deletions.add(str.substring(2));
 			}
-			if (!histFile.delete())
-				LOGGER.info("Couldn't delete <" + histFile.getAbsolutePath()
-						+ ">");
 			br.close();
-
+			
 			for (String addition : additions) {
 				if (!downloaded.contains(addition))
 					downloaded.add(addition);
@@ -243,10 +244,10 @@ public class DbxDownloader implements Runnable {
 		}
 
 		BufferedWriter writer = new BufferedWriter(new FileWriter(
-				Helper.LOCAL_KEY_DETAILS_PATH + "/" + fileName));
+				Constants.LOCAL_KEY_DETAILS_PATH + "/" + fileName));
 		BufferedWriter writer1 = new BufferedWriter(new FileWriter(
-				Helper.LOCAL_KEYWORDS_PATH + "/" + fileName));
-		Pattern p = Pattern.compile(Helper.KEYWORD_DETAIL_PATTERN);
+				Constants.LOCAL_KEYWORDS_PATH + "/" + fileName));
+		Pattern p = Pattern.compile(Constants.KEYWORD_DETAIL_PATTERN);
 		Matcher m;
 		for (String keyDetail : downloaded) {
 			m = p.matcher(keyDetail);
@@ -255,7 +256,7 @@ public class DbxDownloader implements Runnable {
 				writer1.close();
 
 				// for debugging purpose
-				LOGGER.error("Wanted: " + Helper.KEYWORD_DETAIL_PATTERN);
+				LOGGER.error("Wanted: " + Constants.KEYWORD_DETAIL_PATTERN);
 				LOGGER.error("Got: " + keyDetail);
 
 				throw new IOException("Illegal format");

@@ -1,4 +1,4 @@
-package com.swing.imageManager.helper;
+package com.swing.imageManager.lib.model;
 
 public class Pair {
 	private String Key;
