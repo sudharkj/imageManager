@@ -1,4 +1,4 @@
-package com.swing.imageManager;
+package com.swing.imageManager.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;

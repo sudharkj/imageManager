@@ -13,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 import com.swing.imageManager.globals.Constants;
 import com.swing.imageManager.globals.Helper;
 import com.swing.imageManager.lib.dropbox.DbxHelper;
+import com.swing.imageManager.ui.ImageManagerConsole;
 
 public class ImageManager {
 
