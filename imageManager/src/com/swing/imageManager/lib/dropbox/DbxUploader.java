@@ -12,8 +12,8 @@ import com.dropbox.core.DbxClient;
 import com.dropbox.core.DbxEntry;
 import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxWriteMode;
-import com.swing.imageManager.globals.Constants;
-import com.swing.imageManager.globals.Helper;
+import com.swing.imageManager.util.Constants;
+import com.swing.imageManager.util.Helper;
 import com.swing.imageManager.lib.model.Pair;
 
 public class DbxUploader implements Runnable {

@@ -1,4 +1,4 @@
-package com.swing.imageManager.globals;
+package com.swing.imageManager.util;
 
 public class Constants {
 

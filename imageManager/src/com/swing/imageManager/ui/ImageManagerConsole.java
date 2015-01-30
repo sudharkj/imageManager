@@ -21,25 +21,19 @@ import java.awt.image.BufferedImage;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.imageio.IIOException;
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultComboBoxModel;
@@ -68,64 +62,81 @@ import javax.swing.event.ListSelectionListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.swing.imageManager.globals.Constants;
-import com.swing.imageManager.globals.Helper;
-import com.swing.imageManager.lib.lucene.LuceneHelper;
 import com.swing.imageManager.lib.lucene.LuceneIndexer;
 import com.swing.imageManager.lib.model.Pair;
+import com.swing.imageManager.util.Constants;
+import com.swing.imageManager.util.Helper;
+import com.swing.imageManager.util.MySimpleFileVisitor;
+import com.swing.imageManager.util.swingWorker.SearchingSwingWorker;
+import com.swing.imageManager.util.swingWorker.TesseractSwingWorker;
 
 @SuppressWarnings("serial")
 public class ImageManagerConsole extends JComponent {
 
-	final static Logger LOGGER = LogManager
-			.getLogger(ImageManagerConsole.class);
+	/**
+	 * Constants
+	 */
+	private final static Logger LOGGER;
+	private final static String[] LANG;
+	private final static int FILE_NAME_LABEL_HEIGHT;
+	private final static int OPTIONS_PANEL_HEIGHT;
+	private final static int THUMBS_PANEL_HEIGHT;
 
-	private static List<String> FileNames;
-	private String lang[] = { "eng", "hin" };
-	private int FileNumber;
-	private ArrayList<Rectangle> ImageRectangles;
-	private ArrayList<Rectangle> Rectangles;
-	private ArrayList<Boolean> Different;
-	private boolean MouseDown;
-	private Point StartPoint, EndPoint;
-	private String SearchText;
-	private int prevSelectedInd;
+	/**
+	 * imageio variables
+	 */
+	private Image loadedImage;
+	private Image image;
 
-	// size variables
-	private final int LabelHeight = 15;
-	private int AppWidth;
-	private int AppHeight;
-	private final int SearchPanelHeight = 35;
-	private int SplitPaneHeight;
-	private int KeywordWidth;
-	private int DividerLocation;
-	private int ActualImageWidth;
-	private int ActualImageHeight;
-	private int ImageWidth;
-	private int ImageHeight;
-	private final int ThumbsPaneHeight = 65;
+	/**
+	 * UI (javax.swing) variables
+	 */
+	private JPanel optionsPanel;
+	private JSplitPane imageSplitPane;
+	private JPanel imagePanel;
+	private JLabel imageLabel;
+	private DefaultListModel<String> keywordListModel;
+	private JScrollPane thumbsScrollPane;
+	private JList<ImageIcon> thumbIconList;
+	private DefaultListModel<ImageIcon> thumbIconListModel;
 
-	public JFrame frame;
-	private JLabel imgLbl;
-	private DefaultListModel<String> keyList;
-	private JList<ImageIcon> thumbsList;
-	private DefaultListModel<ImageIcon> thumbscon;
-	private JScrollPane scrollPane;
-	private Image ActualImage;
-	private Image ResizedImage;
-	private JTextField searchTextField;
-	private JPanel searchPanel;
-	private JSplitPane imgPane;
-	private JPanel imgPnl;
-	private JPanel keywrdPanel;
-	private JLabel keywrdsLbl;
-	private JList<String> keywrdList;
-	private JButton btnRefresh;
-	private JLabel lblLanguage;
-	private JComboBox<String> LanguageComboBox;
+	/**
+	 * size variables
+	 */
+	private int consoleWidth;
+	private int consoleHeight;
+	private int imageSplitPaneHeight;
+	private int loadedImageWidth;
+	private int loadedImageHeight;
+	private int imageWidth;
+	private int imageHeight;
+	private int dividerLocation;
+	private int keywordWidth;
 
-	public void setVisible(boolean value) {
-		frame.setVisible(value);
+	/**
+	 * Other global variables used by the class
+	 */
+	private Path LOCAL_IMAGES_PATH_PATH;
+	private String searchText;
+	private int selectedFileNumber;
+	private List<String> fileNameList;
+	private List<Rectangle> loadedRectangleList;
+	private List<Rectangle> rectangleList;
+	private int previousSelectedRectangleIndex;
+	private List<Boolean> isSelectedRectangleList;
+	private boolean isMouseDown;
+	private Point topLeftPoint, bottomRightPoint;
+
+	static {
+		LOGGER = LogManager.getLogger(ImageManagerConsole.class);
+
+		LANG = new String[2];
+		LANG[0] = "eng";
+		LANG[1] = "hin";
+
+		FILE_NAME_LABEL_HEIGHT = 15;
+		OPTIONS_PANEL_HEIGHT = 35;
+		THUMBS_PANEL_HEIGHT = 65;
 	}
 
 	/**
@@ -134,32 +145,54 @@ public class ImageManagerConsole extends JComponent {
 	 * @throws IOException
 	 */
 	public ImageManagerConsole() throws IOException {
-		Constants.LOCAL_IMAGES_PATH = Constants.LOCAL_BASE_PATH + "/imageFiles";
-		Constants.LOCAL_THUMBS_PATH = Constants.LOCAL_BASE_PATH + "/thumbImages";
 
-		FileNames = new ArrayList<>();
-		ImageRectangles = new ArrayList<Rectangle>();
-		Rectangles = new ArrayList<Rectangle>();
-		Different = new ArrayList<Boolean>();
-		StartPoint = new Point();
-		EndPoint = StartPoint;
-		ActualImage = null;
-		SearchText = "";
-
-		AppWidth = 800;
-		AppHeight = 600;
-		KeywordWidth = 155;
+		initializeVariables();
 
 		initialize();
 
-		loadFiles(Paths.get(Constants.LOCAL_IMAGES_PATH));
+		loadFiles();
 		loadImage(0);
 
-		MouseDown = false;
+		isMouseDown = false;
+	}
+
+	private void initializeVariables() {
+
+		LOCAL_IMAGES_PATH_PATH = Paths.get(Constants.LOCAL_IMAGES_PATH);
+		
+		fileNameList = new ArrayList<>();
+
+		loadedRectangleList = new ArrayList<Rectangle>();
+		rectangleList = new ArrayList<Rectangle>();
+		isSelectedRectangleList = new ArrayList<Boolean>();
+
+		topLeftPoint = new Point();
+		bottomRightPoint = topLeftPoint;
+
+		loadedImage = null;
+		searchText = "";
+
+		consoleWidth = 800;
+		consoleHeight = 600;
+		keywordWidth = 155;
+		setFrameVariables();
 	}
 
 	/**
-	 * Initialize the contents of the frame.
+	 * setting the variable sizes
+	 */
+	private void setFrameVariables() {
+
+		imageSplitPaneHeight = consoleHeight - THUMBS_PANEL_HEIGHT
+				- OPTIONS_PANEL_HEIGHT;
+		imageHeight = imageSplitPaneHeight - FILE_NAME_LABEL_HEIGHT - 45;
+
+		dividerLocation = consoleWidth - keywordWidth;
+		imageWidth = dividerLocation - 5;
+	}
+
+	/**
+	 * Initialize the contents of the consoleFrame.
 	 * 
 	 * @throws IOException
 	 * 
@@ -167,54 +200,51 @@ public class ImageManagerConsole extends JComponent {
 	 *             to the parent otherwise use setPreferedSize()
 	 */
 	private void initialize() {
-		setFrameVariables();
-		frame = new JFrame();
-		frame.addComponentListener(new ComponentAdapter() {
+		final JFrame consoleFrame = new JFrame();
+		consoleFrame.setTitle("Notice Box");
+		consoleFrame.setBounds(0, 0, consoleWidth, consoleHeight);
+		consoleFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		consoleFrame.setVisible(true); // for getting the graphics object
+		consoleFrame.addComponentListener(new ComponentAdapter() {
 			@Override
 			public void componentResized(ComponentEvent arg0) {
-				final int prevWidth = ImageWidth;
-				final int prevHeight = ImageHeight;
-				AppWidth = frame.getSize().width;
-				AppHeight = frame.getSize().height;
+				consoleWidth = consoleFrame.getSize().width;
+				consoleHeight = consoleFrame.getSize().height;
 
-				resizeComponents(prevWidth, prevHeight);
-
-				LOGGER.debug("Application resized from [" + prevWidth + ","
-						+ prevHeight + "] to [" + AppWidth + "," + AppHeight
-						+ "]");
+				resizeComponents(imageWidth, imageHeight);
 			}
 		});
-		frame.setTitle("Notice Box");
-		frame.setBounds(0, 0, AppWidth, AppHeight);
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setVisible(true); // for getting the graphics object
 
-		searchPanel = new JPanel();
+		optionsPanel = new JPanel();
 
-		btnRefresh = new JButton("");
-		btnRefresh.setIcon(new ImageIcon(Constants.REFRESH_ICON_PATH));
-		btnRefresh.addActionListener(new ActionListener() {
+		JButton refreshButton = new JButton("");
+		refreshButton.setIcon(new ImageIcon(Constants.REFRESH_ICON_PATH));
+		refreshButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				try {
-					loadFiles(Paths.get(Constants.LOCAL_IMAGES_PATH));
-					if (!thumbscon.isEmpty()) {
+					loadFiles();
+
+					if (!thumbIconListModel.isEmpty()) {
 						loadImage(0);
-						LOGGER.info(FileNames.get(0) + " is loaded");
+						LOGGER.info(fileNameList.get(0) + " is loaded");
 					}
-					prevSelectedInd = -1;
+
+					previousSelectedRectangleIndex = -1;
+
 				} catch (IOException e) {
-					LOGGER.info(e.getMessage()); // log for invalid
-													// file
-					// format
+
+					// log for invalid file format
+					LOGGER.info(e.getMessage());
 				}
 			}
 		});
-		searchPanel.add(btnRefresh);
+		optionsPanel.add(refreshButton);
 
 		JLabel lblSearch = new JLabel("Search :");
-		searchPanel.add(lblSearch);
+		optionsPanel.add(lblSearch);
 
-		searchTextField = new JTextField();
+		final JTextField searchTextField = new JTextField();
+		searchTextField.setColumns(10);
 		searchTextField.getDocument().addDocumentListener(
 				new DocumentListener() {
 					public void changedUpdate(DocumentEvent e) {
@@ -230,29 +260,30 @@ public class ImageManagerConsole extends JComponent {
 					}
 
 					private void modify() {
-						SearchText = searchTextField.getText();
+						searchText = searchTextField.getText();
 						try {
-							loadFiles(Paths.get(Constants.LOCAL_IMAGES_PATH));
+							loadFiles();
 						} catch (IOException e) {
 							LOGGER.info(e.getMessage()); // log
 						}
 					}
 				});
-		searchPanel.add(searchTextField);
-		searchTextField.setColumns(10);
+		optionsPanel.add(searchTextField);
 
-		lblLanguage = new JLabel("Language: ");
-		searchPanel.add(lblLanguage);
+		JLabel languageLabel = new JLabel("Language: ");
+		optionsPanel.add(languageLabel);
 
-		LanguageComboBox = new JComboBox<String>();
-		LanguageComboBox.addActionListener(new ActionListener() {
+		final JComboBox<String> languageComboBox = new JComboBox<String>();
+		languageComboBox.setModel(new DefaultComboBoxModel<>(new String[] {
+				"English", "Hindi" }));
+		languageComboBox.addActionListener(new ActionListener() {
+			
 			public void actionPerformed(ActionEvent arg0) {
-				generateMouseEvent();
+				
+				generateMouseClickEvent();
 			}
 		});
-		LanguageComboBox.setModel(new DefaultComboBoxModel<>(new String[] {
-				"English", "Hindi" }));
-		searchPanel.add(LanguageComboBox);
+		optionsPanel.add(languageComboBox);
 
 		JButton showLog = new JButton();
 		showLog.setIcon(new ImageIcon(Constants.LOG_ICON_PATH));
@@ -261,56 +292,59 @@ public class ImageManagerConsole extends JComponent {
 				LOGGER.info("Feature yet to be implemented");
 			}
 		});
-		searchPanel.add(showLog);
+		optionsPanel.add(showLog);
 
-		frame.getContentPane().add(searchPanel, BorderLayout.NORTH);
+		consoleFrame.getContentPane().add(optionsPanel, BorderLayout.NORTH);
 
-		imgPane = new JSplitPane();
-		imgPane.addPropertyChangeListener(new PropertyChangeListener() {
+		imageSplitPane = new JSplitPane();
+		imageSplitPane.setDividerLocation(dividerLocation);
+		imageSplitPane.addPropertyChangeListener(new PropertyChangeListener() {
+			
 			public void propertyChange(PropertyChangeEvent arg0) {
-				final int prevWidth = ImageWidth;
-				final int prevHeight = ImageHeight;
-				int change = DividerLocation - imgPane.getDividerLocation();
-				LOGGER.debug("Divider location changed by " + change);
+				
+				final int previousImageWidth = imageWidth;
+				final int previousImageHeight = imageHeight;
+				int change = dividerLocation
+						- imageSplitPane.getDividerLocation();
+				
 				// go for changes only when change is not zero
-				if (((change < 0 && -change < ImageWidth) || (change > 0 && change < KeywordWidth))) {
-					KeywordWidth = KeywordWidth + change;
-					resizeComponents(prevWidth, prevHeight);
+				if (((change < 0 && -change < imageWidth) || (change > 0 && change < keywordWidth))) {
+					keywordWidth = keywordWidth + change;
+					resizeComponents(previousImageWidth, previousImageHeight);
 				}
 			}
 		});
-		imgPane.setDividerLocation(DividerLocation);
 
-		imgPnl = new JPanel();
-		imgPnl.setLayout(new BorderLayout(0, 0));
+		imagePanel = new JPanel();
+		imagePanel.setLayout(new BorderLayout(0, 0));
 
-		imgLbl = new JLabel("");
-		imgLbl.addMouseMotionListener(new MouseMotionAdapter() {
+		imageLabel = new JLabel("");
+		imageLabel.addMouseMotionListener(new MouseMotionAdapter() {
 			@Override
 			public void mouseDragged(MouseEvent arg0) {
-				if (MouseDown) {
+				if (isMouseDown) {
 					int pt[] = normalise();
 					if (pt[2] != 0 && pt[3] != 0)
-						imgLbl.getGraphics().clearRect(pt[0], pt[1], pt[2],
+						imageLabel.getGraphics().clearRect(pt[0], pt[1], pt[2],
 								pt[3]);
-					EndPoint = arg0.getPoint();
-					paintComponent(imgLbl.getGraphics());
+					bottomRightPoint = arg0.getPoint();
+					paintComponent(imageLabel.getGraphics());
 				}
 			}
 		});
-		imgLbl.addMouseListener(new MouseAdapter() {
+		imageLabel.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent arg0) {
-				StartPoint = EndPoint;
-				paintComponent(imgLbl.getGraphics());
-				MouseDown = false;
+				topLeftPoint = bottomRightPoint;
+				paintComponent(imageLabel.getGraphics());
+				isMouseDown = false;
 			}
 
 			@Override
 			public void mousePressed(MouseEvent arg0) {
-				StartPoint = arg0.getPoint();
-				EndPoint = StartPoint;
-				MouseDown = true;
+				topLeftPoint = arg0.getPoint();
+				bottomRightPoint = topLeftPoint;
+				isMouseDown = true;
 			}
 
 			@Override
@@ -324,149 +358,79 @@ public class ImageManagerConsole extends JComponent {
 			}
 
 			private void rectangleComplete(MouseEvent arg0) {
-				if (MouseDown && ActualImage != null) {
+				
+				if (isMouseDown && loadedImage != null) {
+					
+					// clear previous rectangle
 					int pt[] = normalise();
 					if (pt[2] != 0 && pt[3] != 0)
-						imgLbl.getGraphics().clearRect(pt[0], pt[1], pt[2],
+						imageLabel.getGraphics().clearRect(pt[0], pt[1], pt[2],
 								pt[3]);
-					EndPoint = arg0.getPoint();
-					paintComponent(imgLbl.getGraphics());
+					bottomRightPoint = arg0.getPoint();
+					paintComponent(imageLabel.getGraphics());
+					
+					// draw the new rectangle
 					pt = normalise();
 					if (pt[2] != 0 && pt[3] != 0) {
-						Rectangles
-								.add(new Rectangle(pt[0], pt[1], pt[2], pt[3]));
-						Different.add(false);
+						rectangleList.add(new Rectangle(pt[0], pt[1], pt[2],
+								pt[3]));
+						isSelectedRectangleList.add(false);
 						LOGGER.info("Rectangle drawn: [" + pt[0] + "," + pt[1]
 								+ "," + pt[2] + "," + pt[3] + "]");
 						getImageText(pt);
 					}
-					StartPoint = EndPoint;
+					topLeftPoint = bottomRightPoint;
 				}
-				MouseDown = false;
+				isMouseDown = false;
 			}
 
 			private void getImageText(int[] pt) {
 				final int par[] = actualPoints(pt);
-				ImageRectangles.add(new Rectangle(par[0], par[1], par[2],
+				loadedRectangleList.add(new Rectangle(par[0], par[1], par[2],
 						par[3]));
 				if (par[2] != 0 && par[3] != 0) {
-					SwingWorker<Void, Void> tesseract = new SwingWorker<Void, Void>() {
-						@Override
-						protected Void doInBackground() throws Exception {
-							BufferedImage extracted = (BufferedImage) ActualImage;
-							extracted = extracted.getSubimage(par[0], par[1],
-									par[2], par[3]);
-							String fileName = Constants.TEMP_PATH + "/buffer"
-									+ Rectangles.size();
-							File fp = new File(fileName + ".png");
-							ImageIO.write(extracted, "png", fp);
-							Runtime.getRuntime()
-									.exec("cmd /c cmd.exe /K \"tesseract "
-											+ fileName
-											+ ".png "
-											+ fileName
-											+ " -l "
-											+ lang[LanguageComboBox
-													.getSelectedIndex()]
-											+ " && exit\"").waitFor();
-							fp.delete();
-							@SuppressWarnings("resource")
-							BufferedReader stdIn = new BufferedReader(
-									new FileReader(fileName + ".txt"));
-							String s, str = "";
-							while ((s = stdIn.readLine()) != null)
-								str = str + s + " ";
-							str = str.trim();
-							LOGGER.info("<" + str + "> added to keywords");
-							try (PrintWriter out = new PrintWriter(
-									new BufferedWriter(new FileWriter(
-											Constants.LOCAL_KEY_DETAILS_PATH + "/"
-													+ FileNames.get(FileNumber)
-													+ ".txt", true)));
-									PrintWriter out1 = new PrintWriter(
-											new BufferedWriter(
-													new FileWriter(
-															Constants.LOCAL_KEYWORDS_PATH
-																	+ "/"
-																	+ FileNames
-																			.get(FileNumber)
-																	+ ".txt",
-															true)));
-									PrintWriter out2 = new PrintWriter(
-											new BufferedWriter(
-													new FileWriter(
-															Constants.TEMP_DIFF_KEY_DETAILS_PATH
-																	+ "/"
-																	+ FileNames
-																			.get(FileNumber)
-																	+ ".txt",
-															true)))) {
-								out.println(par[0] + ":" + par[1] + ":"
-										+ par[2] + ":" + par[3] + ":" + str);
-								out1.println(str + " ");
-								out2.println("+:" + par[0] + ":" + par[1] + ":"
-										+ par[2] + ":" + par[3] + ":" + str);
-								// System.out.println("on line 491: " + par[0]
-								// + ":" + par[1] + ":" + par[2] + ":"
-								// + par[3] + ":" + str); // log
-								out.close();
-								out1.close();
-								out2.close();
-								Helper.UploadQueue.enque(new Pair(
-										Constants.LOCAL_KEY_DETAILS_PATH + "/"
-												+ FileNames.get(FileNumber)
-												+ ".txt",
-										Constants.DBX_KEY_DETAILS_PATH + "/"
-												+ FileNames.get(FileNumber)
-												+ ".txt"));
-								LuceneIndexer.indexHelper();
-							} catch (IOException e) {
-								LOGGER.info(e.getMessage());// check
-															// the
-															// exceptions
-							}
-							keyList.addElement(str);
-							new File(fileName + ".txt").delete();
-							return null;
-						}
-					};
-					tesseract.execute();
+					new TesseractSwingWorker(keywordListModel, (BufferedImage) loadedImage,
+							fileNameList.get(selectedFileNumber),
+							LANG[languageComboBox.getSelectedIndex()], par,
+							rectangleList.size()).execute();
 				}
 			}
 		});
-		imgPnl.add(imgLbl, BorderLayout.CENTER);
-		imgPane.setLeftComponent(imgPnl);
+		imagePanel.add(imageLabel, BorderLayout.CENTER);
+		imageSplitPane.setLeftComponent(imagePanel);
 
-		keywrdPanel = new JPanel();
-		keywrdPanel.setBorder(BorderFactory.createTitledBorder("Keywords"));
-		keywrdPanel.setBorder(BorderFactory.createBevelBorder(0));
-		keywrdPanel.setLayout(new BorderLayout(0, 0));
+		JPanel keywordsPanel = new JPanel();
+		keywordsPanel.setBorder(BorderFactory.createTitledBorder("Keywords"));
+		keywordsPanel.setBorder(BorderFactory.createBevelBorder(0));
+		keywordsPanel.setLayout(new BorderLayout(0, 0));
 
-		keywrdsLbl = new JLabel("Keywords");
-		keywrdPanel.add(keywrdsLbl, BorderLayout.NORTH);
+		JLabel keywordLabel = new JLabel("Keywords");
+		keywordsPanel.add(keywordLabel, BorderLayout.NORTH);
 
-		keywrdList = new JList<String>();
-		keyList = new DefaultListModel<String>();
-		keywrdList.setModel(keyList);
-		keywrdList.addListSelectionListener(new ListSelectionListener() {
+		final JList<String> keywordList = new JList<String>();
+		keywordListModel = new DefaultListModel<String>();
+		keywordList.setModel(keywordListModel);
+		keywordList.addListSelectionListener(new ListSelectionListener() {
 
 			@Override
 			public void valueChanged(ListSelectionEvent keyevt) {
 				if (!keyevt.getValueIsAdjusting()
-						&& !keywrdList.isSelectionEmpty()) {
-					int index = keywrdList.getSelectedIndex();
-					if (prevSelectedInd != -1
-							&& prevSelectedInd < Rectangles.size())
-						Different.set(prevSelectedInd, false);
-					prevSelectedInd = index;
-					Different.set(index, true);
-					paintComponent(imgLbl.getGraphics());
+						&& !keywordList.isSelectionEmpty()) {
+					int index = keywordList.getSelectedIndex();
+					if (previousSelectedRectangleIndex != -1
+							&& previousSelectedRectangleIndex < rectangleList
+									.size())
+						isSelectedRectangleList.set(
+								previousSelectedRectangleIndex, false);
+					previousSelectedRectangleIndex = index;
+					isSelectedRectangleList.set(index, true);
+					paintComponent(imageLabel.getGraphics());
 				}
 			}
 		});
-		JScrollPane KeyWordScrollPane = new JScrollPane(keywrdList);
-		keywrdPanel.add(KeyWordScrollPane, BorderLayout.CENTER);
-		imgPane.setRightComponent(keywrdPanel);
+		JScrollPane KeyWordScrollPane = new JScrollPane(keywordList);
+		keywordsPanel.add(KeyWordScrollPane, BorderLayout.CENTER);
+		imageSplitPane.setRightComponent(keywordsPanel);
 
 		JPanel buttonPanel = new JPanel();
 
@@ -476,42 +440,42 @@ public class ImageManagerConsole extends JComponent {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				String str = JOptionPane.showInputDialog(frame,
+				String str = JOptionPane.showInputDialog(consoleFrame,
 						"Enter the keyword to be added", "Add",
 						JOptionPane.INFORMATION_MESSAGE);
-				keyList.addElement(str);
+				keywordListModel.addElement(str);
 				LOGGER.info("<" + str + "> added to keywords");
-				ImageRectangles.add(new Rectangle(0, 0, 1, 1));
-				Rectangles.add(new Rectangle(0, 0, 1, 1));
-				Different.add(false);
+				loadedRectangleList.add(new Rectangle(0, 0, 1, 1));
+				rectangleList.add(new Rectangle(0, 0, 1, 1));
+				isSelectedRectangleList.add(false);
 				modifyKeyFiles("+:0:0:1:1:" + str);
-				paintComponent(imgLbl.getGraphics());
+				paintComponent(imageLabel.getGraphics());
 			}
 		});
 		JButton edit = new JButton("");
 		edit.setIcon(new ImageIcon(Constants.EDIT_ICON_PATH));
 		edit.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				int ind = keywrdList.getSelectedIndex();
+				int ind = keywordList.getSelectedIndex();
 				if (ind == -1) {
-					JOptionPane.showMessageDialog(frame,
+					JOptionPane.showMessageDialog(consoleFrame,
 							"Only a selected keyword can be modified",
 							"Error Occured", JOptionPane.ERROR_MESSAGE);
 				} else {
-					String str = JOptionPane.showInputDialog(frame,
+					String str = JOptionPane.showInputDialog(consoleFrame,
 							"Enter the new Keyword", "Edit",
 							JOptionPane.INFORMATION_MESSAGE);
-					String keyword = keyList.get(ind);
-					Rectangle rectangle = ImageRectangles.get(ind);
-					keyList.remove(ind);
-					keyList.add(ind, str);
+					String keyword = keywordListModel.get(ind);
+					Rectangle rectangle = loadedRectangleList.get(ind);
+					keywordListModel.remove(ind);
+					keywordListModel.add(ind, str);
 					LOGGER.info("<" + str + "> added to keywords");
 					modifyKeyFiles("-:" + rectangle.x + ":" + rectangle.y + ":"
 							+ rectangle.height + ":" + rectangle.width + ":"
 							+ keyword + "+:" + rectangle.x + ":" + rectangle.y
 							+ ":" + rectangle.height + ":" + rectangle.width
 							+ ":" + str);
-					paintComponent(imgLbl.getGraphics());
+					paintComponent(imageLabel.getGraphics());
 				}
 			}
 		});
@@ -519,34 +483,34 @@ public class ImageManagerConsole extends JComponent {
 		JButton minus = new JButton("-");
 		minus.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				int ind = keywrdList.getSelectedIndex();
+				int ind = keywordList.getSelectedIndex();
 				if (ind == -1) {
-					JOptionPane.showMessageDialog(frame,
+					JOptionPane.showMessageDialog(consoleFrame,
 							"Only a selected keyword can be deleted",
 							"Error Occured", JOptionPane.ERROR_MESSAGE);
 				} else {
-					String keyword = keyList.remove(ind);
-					Rectangle rectangle = ImageRectangles.remove(ind);
-					Rectangles.remove(ind);
-					Different.remove(ind);
-					LOGGER.info("<" + keyList.get(ind)
+					String keyword = keywordListModel.remove(ind);
+					Rectangle rectangle = loadedRectangleList.remove(ind);
+					rectangleList.remove(ind);
+					isSelectedRectangleList.remove(ind);
+					LOGGER.info("<" + keywordListModel.get(ind)
 							+ "> removed from keywords");
 					modifyKeyFiles("-:" + rectangle.x + ":" + rectangle.y + ":"
 							+ rectangle.height + ":" + rectangle.width + ":"
 							+ keyword);
-					paintComponent(imgLbl.getGraphics());
+					paintComponent(imageLabel.getGraphics());
 				}
 			}
 		});
 		buttonPanel.add(minus);
 
-		keywrdPanel.add(buttonPanel, BorderLayout.SOUTH);
+		keywordsPanel.add(buttonPanel, BorderLayout.SOUTH);
 		buttonPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
 
-		frame.getContentPane().add(imgPane, BorderLayout.CENTER);
+		consoleFrame.getContentPane().add(imageSplitPane, BorderLayout.CENTER);
 
-		thumbsList = new JList<ImageIcon>();
-		thumbsList.addListSelectionListener(new ListSelectionListener() {
+		thumbIconList = new JList<ImageIcon>();
+		thumbIconList.addListSelectionListener(new ListSelectionListener() {
 			public void valueChanged(ListSelectionEvent lsevt) {
 				/*
 				 * 2 ListSelectionEvents are dispatched when the JList is
@@ -558,9 +522,9 @@ public class ImageManagerConsole extends JComponent {
 				 * conditions
 				 */
 				if (!lsevt.getValueIsAdjusting()
-						&& !thumbsList.isSelectionEmpty()) {
+						&& !thumbIconList.isSelectionEmpty()) {
 					try {
-						loadImage(thumbsList.getSelectedIndex());
+						loadImage(thumbIconList.getSelectedIndex());
 					} catch (IOException e) {
 						LOGGER.info(e.getMessage()); // log - not
 						// required
@@ -569,70 +533,19 @@ public class ImageManagerConsole extends JComponent {
 			}
 
 		});
-		thumbsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		thumbsList.setVisibleRowCount(1);
-		thumbsList.setLayoutOrientation(JList.VERTICAL_WRAP);
-		thumbscon = new DefaultListModel<ImageIcon>();
-		thumbsList.setModel(thumbscon);
-		thumbsList.setBorder(new BevelBorder(BevelBorder.LOWERED, null, null,
-				null, null));
+		thumbIconList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		thumbIconList.setVisibleRowCount(1);
+		thumbIconList.setLayoutOrientation(JList.VERTICAL_WRAP);
+		thumbIconListModel = new DefaultListModel<ImageIcon>();
+		thumbIconList.setModel(thumbIconListModel);
+		thumbIconList.setBorder(new BevelBorder(BevelBorder.LOWERED, null,
+				null, null, null));
 
-		scrollPane = new JScrollPane(thumbsList);
-		frame.getContentPane().add(scrollPane, BorderLayout.SOUTH);
+		thumbsScrollPane = new JScrollPane(thumbIconList);
+		consoleFrame.getContentPane().add(thumbsScrollPane, BorderLayout.SOUTH);
 
 		setComponentSizes();
 
-	}
-
-	protected void modifyKeyFiles(final String diff) {
-		SwingWorker<Void, Void> editFiles = new SwingWorker<Void, Void>() {
-			@Override
-			protected Void doInBackground() throws Exception {
-				try {
-					PrintWriter out = new PrintWriter(
-							Constants.LOCAL_KEY_DETAILS_PATH + "/"
-									+ FileNames.get(FileNumber) + ".txt");
-					PrintWriter out1 = new PrintWriter(
-							Constants.LOCAL_KEYWORDS_PATH + "/"
-									+ FileNames.get(FileNumber) + ".txt");
-					PrintWriter out2 = new PrintWriter(
-							Constants.TEMP_DIFF_KEY_DETAILS_PATH + "/"
-									+ FileNames.get(FileNumber) + ".txt");
-					for (int i = 0; i < ImageRectangles.size(); ++i) {
-						Rectangle rect = ImageRectangles.get(i);
-						out.println(rect.x + ":" + rect.y + ":" + rect.width
-								+ ":" + rect.height + ":"
-								+ keyList.elementAt(i));
-						out1.println(keyList.elementAt(i) + " ");
-					}
-					out2.println(diff);
-					out.close();
-					out1.close();
-					out2.close();
-					Helper.UploadQueue.enque(new Pair(
-							Constants.LOCAL_KEY_DETAILS_PATH + "/"
-									+ FileNames.get(FileNumber) + ".txt",
-							Constants.DBX_KEY_DETAILS_PATH + "/"
-									+ FileNames.get(FileNumber) + ".txt"));
-					LuceneIndexer.indexHelper();
-				} catch (IOException e) {
-					LOGGER.info(e.getMessage());// check the
-												// exceptions
-				}
-				return null;
-			}
-		};
-		editFiles.execute();
-	}
-
-	/**
-	 * setting the variable sizes
-	 */
-	private void setFrameVariables() {
-		DividerLocation = AppWidth - KeywordWidth;
-		SplitPaneHeight = AppHeight - ThumbsPaneHeight - SearchPanelHeight;
-		ImageWidth = DividerLocation - 5;
-		ImageHeight = SplitPaneHeight - LabelHeight - 45;
 	}
 
 	/**
@@ -641,224 +554,152 @@ public class ImageManagerConsole extends JComponent {
 	 * @param prevWidth
 	 * @param prevHeight
 	 */
-	protected void resizeComponents(final int prevWidth, final int prevHeight) {
+	private void resizeComponents(final int prevWidth, final int prevHeight) {
 
 		setFrameVariables();
 		setComponentSizes();
 		setImageLabel();// check this //
 		// scaling the points;
-		for (int i = 0; i < Rectangles.size(); ++i) {
-			Rectangle rect = ImageRectangles.get(i);
+		for (int i = 0; i < rectangleList.size(); ++i) {
+			Rectangle rect = loadedRectangleList.get(i);
 			int pt[] = new int[4];
-			pt[0] = (int) rect.getX() * ImageWidth / ActualImageWidth;
-			pt[1] = (int) rect.getY() * ImageHeight / ActualImageHeight;
-			pt[2] = (int) rect.getWidth() * ImageWidth / ActualImageWidth;
-			pt[3] = (int) rect.getHeight() * ImageHeight / ActualImageHeight;
+			pt[0] = (int) rect.getX() * imageWidth / loadedImageWidth;
+			pt[1] = (int) rect.getY() * imageHeight / loadedImageHeight;
+			pt[2] = (int) rect.getWidth() * imageWidth / loadedImageWidth;
+			pt[3] = (int) rect.getHeight() * imageHeight / loadedImageHeight;
 			rect = new Rectangle(pt[0], pt[1], pt[2], pt[3]);
-			Rectangles.set(i, rect);
+			rectangleList.set(i, rect);
 		}
-		if (StartPoint != null && EndPoint != null) {
-			StartPoint.x = StartPoint.x * ImageWidth / prevWidth;
-			StartPoint.y = StartPoint.y * ImageHeight / prevHeight;
-			EndPoint.x = EndPoint.x * ImageWidth / prevWidth;
-			EndPoint.y = EndPoint.y * ImageHeight / prevHeight;
+		if (topLeftPoint != null && bottomRightPoint != null) {
+			topLeftPoint.x = topLeftPoint.x * imageWidth / prevWidth;
+			topLeftPoint.y = topLeftPoint.y * imageHeight / prevHeight;
+			bottomRightPoint.x = bottomRightPoint.x * imageWidth / prevWidth;
+			bottomRightPoint.y = bottomRightPoint.y * imageHeight / prevHeight;
 		}
-		// paintComponent(imgLbl.getGraphics()); // this doesn't work till there
+		// paintComponent(imageLabel.getGraphics()); // this doesn't work till
+		// there
 		// is event occured
 		// generate mouse event for drawing
-		generateMouseEvent();
+		generateMouseClickEvent();
+	}
+
+	private void setComponentSizes() {
+		// consoleFrame.setBounds(0, 0, consoleWidth, consoleHeight); //
+		// Uncommenting it will
+		// make it unable to use the minimize button
+		if (optionsPanel != null)
+			optionsPanel.setPreferredSize(new Dimension(consoleWidth,
+					OPTIONS_PANEL_HEIGHT));
+		if (imageSplitPane != null) {
+			imageSplitPane.setPreferredSize(new Dimension(consoleWidth,
+					imageSplitPaneHeight));
+			imageSplitPane.setDividerLocation(dividerLocation);
+		}
+		if (imagePanel != null)
+			imagePanel.setSize(dividerLocation, imageSplitPaneHeight);
+		// if(thumbIconList!=null) thumbIconList.setPreferredSize(new
+		// Dimension(consoleWidth-5, ThumbsHeight));
+		if (thumbsScrollPane != null)
+			thumbsScrollPane.setPreferredSize(new Dimension(consoleWidth,
+					THUMBS_PANEL_HEIGHT));
+
+	}
+
+	private void setImageLabel() {
+		if (loadedImage != null) {
+			image = loadedImage.getScaledInstance(imageWidth, imageHeight, 0);
+			imageLabel.getGraphics().drawImage(image, 0, 0, null);
+			// imageLabel.setIcon(new ImageIcon(image)); // for now only use
+			// drawImage(); this doesn't allow dividor location change
+		}
 	}
 
 	/**
 	 * Generates mouseClickEvent
 	 */
-	private void generateMouseEvent() {
-		MouseEvent evt = new MouseEvent(imgLbl, // which
+	private void generateMouseClickEvent() {
+		MouseEvent evt = new MouseEvent(imageLabel, // which
 				MouseEvent.MOUSE_CLICKED, // what
 				System.currentTimeMillis(), // when
 				0, // no modifiers
-				ImageWidth / 2, ImageHeight / 2, // where: at (0,0) on imgLbl
+				imageWidth / 2, imageHeight / 2, // where: at (0,0) on
+													// imageLabel
 				1, // only 1 click
 				true); // not a popup trigger
-		imgLbl.dispatchEvent(evt); // this is not trigerring the event, better
-									// to register two events
+		imageLabel.dispatchEvent(evt); // this is not trigerring the event,
+										// better
+										// to register two events
 		Toolkit.getDefaultToolkit().getSystemEventQueue().postEvent(evt);
-	}
-
-	/**
-	 * Returns normalized points
-	 * 
-	 * @return
-	 */
-	private int[] normalise() {
-		int pt[] = new int[4];
-		pt[0] = Math.min(StartPoint.x, EndPoint.x);
-		pt[1] = Math.min(StartPoint.y, EndPoint.y);
-		pt[2] = Math.max(StartPoint.x, EndPoint.x);
-		pt[3] = Math.max(StartPoint.y, EndPoint.y);
-		pt[0] = Math.max(pt[0], 0);
-		pt[1] = Math.max(pt[1], 0);
-		pt[2] = Math.min(pt[2], ImageWidth);
-		pt[3] = Math.min(pt[3], ImageHeight);
-		pt[2] = pt[2] - pt[0];
-		pt[3] = pt[3] - pt[1];
-		return pt;
 	}
 
 	/**
 	 * Load the files in the application
 	 * 
-	 * @param path
 	 * @throws IOException
 	 */
-	private void loadFiles(Path path) throws IOException {
+	private void loadFiles() throws IOException {
 		// clear the lists
-		thumbscon.clear();
-		keyList.clear();
-		FileNames.clear();
-		imgLbl.getGraphics().clearRect(0, 0, ImageWidth, ImageHeight);
-		imgPane.setBorder(BorderFactory.createTitledBorder("Image Pane"));
-		ActualImage = null;
-		ResizedImage = null;
+		thumbIconListModel.clear();
+		keywordListModel.clear();
+		fileNameList.clear();
+		imageLabel.getGraphics().clearRect(0, 0, imageWidth, imageHeight);
+		imageSplitPane
+				.setBorder(BorderFactory.createTitledBorder("Image Pane"));
+		loadedImage = null;
+		image = null;
 
 		/*
 		 * trim the text if the search text is empty load all files else load
 		 * only the files containing the keyword
 		 */
-		SearchText = SearchText.trim();
-		if (SearchText.isEmpty()) {
-			loadAllFiles(path);
+		searchText = searchText.trim();
+		if (searchText.isEmpty()) {
+			// Load the all file in the application
+			Files.walkFileTree(LOCAL_IMAGES_PATH_PATH,
+					new MySimpleFileVisitor(thumbIconListModel, fileNameList,
+							searchText));
 		} else {
-			loadSelectedFiles(path);
+			// Load selected files in the application
+			new SearchingSwingWorker(thumbIconListModel, fileNameList,
+					searchText).execute();
 		}
 	}
 
-	/**
-	 * Load the all file in the application
-	 * 
-	 * @param start
-	 * @throws IOException
-	 */
-	private void loadAllFiles(final Path start) throws IOException {
-		// walking through the whole file tree
-		Files.walkFileTree(start, new SimpleFileVisitor<Path>() {
-			@Override
-			public FileVisitResult visitFile(Path file,
-					BasicFileAttributes attrs) throws IOException {
-				String fileName = file.getFileName().toString();
-				BufferedImage curImage;
-				try {
-					// add to the required variables only if the file is of
-					// proper format
-					// System.out.format("%s (%s) added to the ArrayList\n",fileName,file.toString());
-					// // log
-					curImage = ImageIO.read(new File(Constants.LOCAL_THUMBS_PATH
-							+ "\\" + fileName));
-					thumbscon.addElement(new ImageIcon(curImage));
-					FileNames.add(fileName);
-					// scrollPane.setViewportView(thumbsList); // uncomment it
-					// only if the scrollpane doesn't show all the images
-				} catch (IIOException e) {
-					addThumbImage(fileName);
-				} catch (Exception e) {
-					LOGGER.info(e.getMessage()); // log for invalid
-					// file
-					// format
-				}
-				return FileVisitResult.CONTINUE;
-			}
-
-			@Override
-			public FileVisitResult preVisitDirectory(Path dir,
-					BasicFileAttributes attrs) throws IOException {
-				// System.out.format("Scanning %s ...\n",dir); // log
-				return FileVisitResult.CONTINUE;
-			}
-
-			@Override
-			public FileVisitResult postVisitDirectory(Path dir, IOException e)
-					throws IOException {
-				if (e == null) {
-					// System.out.format("Scanning complete\n"); // log
-					return FileVisitResult.CONTINUE;
-				} else {
-					throw e;
-				}
-			}
-		});
-	}
-
-	/**
-	 * Load selected files in the application
-	 * 
-	 * @param path
-	 */
-	private void loadSelectedFiles(Path path) {
-		SwingWorker<Void, List<String>> searching = new SwingWorker<Void, List<String>>() {
-			@Override
-			protected Void doInBackground() throws Exception {
-
-				publish(LuceneHelper.doSearch(SearchText));
-
-				return null;
-			}
-
-			@Override
-			protected void process(List<List<String>> arg0) {
-				// TODO Auto-generated method stub
-				FileNames.clear();
-				thumbscon.clear();
-				for (String file : arg0.get(0)) {
-					FileNames.add(file);
-					thumbscon.addElement(new ImageIcon(Constants.LOCAL_THUMBS_PATH
-							+ '\\' + file));
-				}
-			}
-
-			@Override
-			protected void done() {
-				// TODO Auto-generated method stub
-				LOGGER.debug("Searching Complete");
-			}
-
-		};
-		searching.execute();
-	}
-
 	private void loadImage(int index) throws IOException {
-		prevSelectedInd = -1;
-		FileNumber = index;
-		if (FileNames.isEmpty()) {
-			imgPane.setBorder(BorderFactory.createTitledBorder("Image Pane"));
-			imgLbl.setText("Directory is empty");
-			// System.out.println("Directory is empty"); // log
+		previousSelectedRectangleIndex = -1;
+		selectedFileNumber = index;
+		if (fileNameList.isEmpty()) {
+			imageSplitPane.setBorder(BorderFactory
+					.createTitledBorder("Image Pane"));
+			imageLabel.setText("Directory is empty");
 		} else {
-			thumbsList.setSelectedIndex(index);
-			imgLbl.setText("");
-			TitledBorder title = BorderFactory.createTitledBorder(FileNames
+			thumbIconList.setSelectedIndex(index);
+			imageLabel.setText("");
+			TitledBorder title = BorderFactory.createTitledBorder(fileNameList
 					.get(index)
 					+ " ("
 					+ (index + 1)
 					+ "/"
-					+ FileNames.size()
-					+ ")");
+					+ fileNameList.size() + ")");
 			title.setTitleJustification(TitledBorder.CENTER);
-			imgPane.setBorder(title);
-			ActualImage = ImageIO.read(new File(Constants.LOCAL_IMAGES_PATH + "/"
-					+ FileNames.get(index)));
-			ActualImageWidth = ActualImage.getWidth(null);
-			ActualImageHeight = ActualImage.getHeight(null);
+			imageSplitPane.setBorder(title);
+			
+			loadedImage = ImageIO.read(new File(Constants.LOCAL_IMAGES_PATH
+					+ "/" + fileNameList.get(index)));
+			loadedImageWidth = loadedImage.getWidth(null);
+			loadedImageHeight = loadedImage.getHeight(null);
 			setImageLabel();
-			keyList.clear();
-			ImageRectangles.clear();
-			Rectangles.clear();
-			Different.clear();
+			keywordListModel.clear();
+			loadedRectangleList.clear();
+			rectangleList.clear();
+			isSelectedRectangleList.clear();
+			
 			try {
 				@SuppressWarnings("resource")
 				// remove it if needed
 				BufferedReader br = new BufferedReader(new FileReader(
 						Constants.LOCAL_KEY_DETAILS_PATH + "/"
-								+ FileNames.get(index) + ".txt"));
+								+ fileNameList.get(index) + ".txt"));
 				String curLine;
 				while ((curLine = br.readLine()) != null) {
 					String pattern = "(\\d*):(\\d*):(\\d*):(\\d*):(.*)";
@@ -879,13 +720,14 @@ public class ImageManagerConsole extends JComponent {
 					pt[1] = Integer.parseInt(m.group(2));
 					pt[2] = Integer.parseInt(m.group(3));
 					pt[3] = Integer.parseInt(m.group(4));
-					ImageRectangles.add(new Rectangle(pt[0], pt[1], pt[2],
+					loadedRectangleList.add(new Rectangle(pt[0], pt[1], pt[2],
 							pt[3]));
 					pt = imagePoints(pt);
-					Rectangles.add(new Rectangle(pt[0], pt[1], pt[2], pt[3]));
-					Different.add(false);
+					rectangleList
+							.add(new Rectangle(pt[0], pt[1], pt[2], pt[3]));
+					isSelectedRectangleList.add(false);
 					String key = m.group(5);
-					keyList.addElement(key);
+					keywordListModel.addElement(key);
 					// System.out.println(pr+": "+key); // log
 				}
 			} catch (FileNotFoundException e) {
@@ -894,21 +736,50 @@ public class ImageManagerConsole extends JComponent {
 				LOGGER.info(e.getMessage()); // log for corrupted
 												// file
 			}
-			// paintComponent(imgLbl.getGraphics()); // this doesn't work till
+			// paintComponent(imageLabel.getGraphics()); // this doesn't work
+			// till
 			// there is event occured
 			// generate mouse event for drawing
-			generateMouseEvent();
+			generateMouseClickEvent();
 		}
 	}
 
-	private void setImageLabel() {
-		if (ActualImage != null) {
-			ResizedImage = ActualImage.getScaledInstance(ImageWidth,
-					ImageHeight, 0);
-			imgLbl.getGraphics().drawImage(ResizedImage, 0, 0, null);
-			// imgLbl.setIcon(new ImageIcon(ResizedImage)); // for now only use
-			// drawImage(); this doesn't allow dividor location change
-		}
+	private int[] imagePoints(int[] pt) {
+		int par[] = new int[4];
+		par[0] = pt[0] * imageWidth / loadedImage.getWidth(null);
+		par[1] = pt[1] * imageHeight / loadedImage.getHeight(null);
+		par[2] = pt[2] * imageWidth / loadedImage.getWidth(null);
+		par[3] = pt[3] * imageHeight / loadedImage.getHeight(null);
+		return par;
+	}
+
+	/**
+	 * Returns normalized points
+	 * 
+	 * @return
+	 */
+	private int[] normalise() {
+		int pt[] = new int[4];
+		pt[0] = Math.min(topLeftPoint.x, bottomRightPoint.x);
+		pt[1] = Math.min(topLeftPoint.y, bottomRightPoint.y);
+		pt[2] = Math.max(topLeftPoint.x, bottomRightPoint.x);
+		pt[3] = Math.max(topLeftPoint.y, bottomRightPoint.y);
+		pt[0] = Math.max(pt[0], 0);
+		pt[1] = Math.max(pt[1], 0);
+		pt[2] = Math.min(pt[2], imageWidth);
+		pt[3] = Math.min(pt[3], imageHeight);
+		pt[2] = pt[2] - pt[0];
+		pt[3] = pt[3] - pt[1];
+		return pt;
+	}
+
+	private int[] actualPoints(int[] pt) {
+		int par[] = new int[4];
+		par[0] = pt[0] * loadedImage.getWidth(null) / imageWidth;
+		par[1] = pt[1] * loadedImage.getHeight(null) / imageHeight;
+		par[2] = pt[2] * loadedImage.getWidth(null) / imageWidth;
+		par[3] = pt[3] * loadedImage.getHeight(null) / imageHeight;
+		return par;
 	}
 
 	/*
@@ -919,16 +790,16 @@ public class ImageManagerConsole extends JComponent {
 	@Override
 	public void paintComponent(Graphics graphics) {
 		super.paintComponent(graphics);
-		if (ResizedImage != null) {
+		if (image != null) {
 			Graphics2D g2d = (Graphics2D) graphics;
-			g2d.drawImage(ResizedImage, 0, 0, null); // always required because
-														// there is a chance of
-														// clearing the
-														// rectangle
-			if (!Rectangles.isEmpty()) {
+			g2d.drawImage(image, 0, 0, null); // always required because
+												// there is a chance of
+												// clearing the
+												// rectangle
+			if (!rectangleList.isEmpty()) {
 				int i = 0;
-				for (Rectangle rect : Rectangles) {
-					if (Different.get(i))
+				for (Rectangle rect : rectangleList) {
+					if (isSelectedRectangleList.get(i))
 						g2d.setColor(Color.GREEN);
 					else
 						g2d.setColor(Color.BLACK);
@@ -937,7 +808,7 @@ public class ImageManagerConsole extends JComponent {
 					++i;
 				}
 			}
-			if (StartPoint != EndPoint) {
+			if (topLeftPoint != bottomRightPoint) {
 				int pt[] = normalise();
 				g2d.setColor(Color.BLACK);
 				if (pt[2] != 0 && pt[3] != 0)
@@ -946,62 +817,50 @@ public class ImageManagerConsole extends JComponent {
 		}
 	}
 
-	private int[] imagePoints(int[] pt) {
-		int par[] = new int[4];
-		par[0] = pt[0] * ImageWidth / ActualImage.getWidth(null);
-		par[1] = pt[1] * ImageHeight / ActualImage.getHeight(null);
-		par[2] = pt[2] * ImageWidth / ActualImage.getWidth(null);
-		par[3] = pt[3] * ImageHeight / ActualImage.getHeight(null);
-		return par;
-	}
-
-	private int[] actualPoints(int[] pt) {
-		int par[] = new int[4];
-		par[0] = pt[0] * ActualImage.getWidth(null) / ImageWidth;
-		par[1] = pt[1] * ActualImage.getHeight(null) / ImageHeight;
-		par[2] = pt[2] * ActualImage.getWidth(null) / ImageWidth;
-		par[3] = pt[3] * ActualImage.getHeight(null) / ImageHeight;
-		return par;
-	}
-
-	protected void setComponentSizes() {
-		// frame.setBounds(0, 0, AppWidth, AppHeight); // Uncommenting it will
-		// make it unable to use the minimize button
-		if (searchPanel != null)
-			searchPanel.setPreferredSize(new Dimension(AppWidth,
-					SearchPanelHeight));
-		if (imgPane != null) {
-			imgPane.setPreferredSize(new Dimension(AppWidth, SplitPaneHeight));
-			imgPane.setDividerLocation(DividerLocation);
-		}
-		if (imgPnl != null)
-			imgPnl.setSize(DividerLocation, SplitPaneHeight);
-		// if(thumbsList!=null) thumbsList.setPreferredSize(new
-		// Dimension(AppWidth-5, ThumbsHeight));
-		if (scrollPane != null)
-			scrollPane.setPreferredSize(new Dimension(AppWidth,
-					ThumbsPaneHeight));
-
-	}
-
-	private void addThumbImage(String fileName) throws IOException {
-		int index = fileName.lastIndexOf('.');
-		if (index == 0)
-			throw new IOException();
-		Image image = ImageIO.read(
-				new File(Constants.LOCAL_IMAGES_PATH + "\\" + fileName))
-				.getScaledInstance(40, 40, Image.SCALE_SMOOTH);
-		BufferedImage resizedImage = new BufferedImage(40, 40,
-				BufferedImage.TYPE_INT_ARGB);
-		resizedImage.getGraphics().drawImage(image, 0, 0, null);
-		ImageIO.write(resizedImage, fileName.substring(index + 1), new File(
-				Constants.LOCAL_THUMBS_PATH + "/" + fileName));
-
-		// this will add the items
-		if (SearchText.trim().isEmpty()) {
-			thumbscon.addElement(new ImageIcon(resizedImage));
-			FileNames.add(fileName);
-		}
+	protected void modifyKeyFiles(final String diff) {
+		SwingWorker<Void, Void> editFiles = new SwingWorker<Void, Void>() {
+			@Override
+			protected Void doInBackground() throws Exception {
+				try {
+					PrintWriter out = new PrintWriter(
+							Constants.LOCAL_KEY_DETAILS_PATH + "/"
+									+ fileNameList.get(selectedFileNumber)
+									+ ".txt");
+					PrintWriter out1 = new PrintWriter(
+							Constants.LOCAL_KEYWORDS_PATH + "/"
+									+ fileNameList.get(selectedFileNumber)
+									+ ".txt");
+					PrintWriter out2 = new PrintWriter(
+							Constants.TEMP_DIFF_KEY_DETAILS_PATH + "/"
+									+ fileNameList.get(selectedFileNumber)
+									+ ".txt");
+					for (int i = 0; i < loadedRectangleList.size(); ++i) {
+						Rectangle rect = loadedRectangleList.get(i);
+						out.println(rect.x + ":" + rect.y + ":" + rect.width
+								+ ":" + rect.height + ":"
+								+ keywordListModel.elementAt(i));
+						out1.println(keywordListModel.elementAt(i) + " ");
+					}
+					out2.println(diff);
+					out.close();
+					out1.close();
+					out2.close();
+					Helper.UploadQueue.enque(new Pair(
+							Constants.LOCAL_KEY_DETAILS_PATH + "/"
+									+ fileNameList.get(selectedFileNumber)
+									+ ".txt", Constants.DBX_KEY_DETAILS_PATH
+									+ "/"
+									+ fileNameList.get(selectedFileNumber)
+									+ ".txt"));
+					LuceneIndexer.indexHelper();
+				} catch (IOException e) {
+					LOGGER.info(e.getMessage());// check the
+												// exceptions
+				}
+				return null;
+			}
+		};
+		editFiles.execute();
 	}
 
 }

@@ -10,8 +10,8 @@ import javax.swing.UIManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.swing.imageManager.globals.Constants;
-import com.swing.imageManager.globals.Helper;
+import com.swing.imageManager.util.Constants;
+import com.swing.imageManager.util.Helper;
 import com.swing.imageManager.lib.dropbox.DbxHelper;
 import com.swing.imageManager.ui.ImageManagerConsole;
 
@@ -31,11 +31,15 @@ public class ImageManager {
 					Constants.DBX_DIR_LOC_FILE_NAME));
 			String temp = br.readLine();
 			Constants.LOCAL_BASE_PATH = (temp == null) ? "" : temp.trim();
-			if (Constants.LOCAL_BASE_PATH.trim().isEmpty()) {
+			if (Constants.LOCAL_BASE_PATH.isEmpty()) {
 				closeApplication("Dropbox location not set in "
 						+ Constants.DBX_DIR_LOC_FILE_NAME);
 			}
 			LOGGER.info("Dropbox folder location: " + Constants.LOCAL_BASE_PATH);
+			Constants.LOCAL_IMAGES_PATH = Constants.LOCAL_BASE_PATH
+					+ "/imageFiles";
+			Constants.LOCAL_THUMBS_PATH = Constants.LOCAL_BASE_PATH
+					+ "/thumbImages";
 		} catch (IOException e) {
 			closeApplication("Error reading <dbx-dir-loc>: " + e.getMessage());
 		} finally {
@@ -60,8 +64,7 @@ public class ImageManager {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
-					ImageManagerConsole window = new ImageManagerConsole();
-					window.setVisible(true);
+					new ImageManagerConsole();
 				} catch (Exception e) {
 					closeApplication(e.getMessage());
 				}

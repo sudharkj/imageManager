@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.swing.imageManager.globals;
+package com.swing.imageManager.util;
 
 import java.io.File;
 import java.io.IOException;

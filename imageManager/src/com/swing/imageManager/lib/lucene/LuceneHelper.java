@@ -34,7 +34,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 
-import com.swing.imageManager.globals.Constants;
+import com.swing.imageManager.util.Constants;
 
 public class LuceneHelper {
 

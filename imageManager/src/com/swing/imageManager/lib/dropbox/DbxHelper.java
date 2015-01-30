@@ -21,8 +21,8 @@ import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.DbxWebAuthNoRedirect;
 import com.dropbox.core.json.JsonReader;
-import com.swing.imageManager.globals.Constants;
-import com.swing.imageManager.globals.Helper;
+import com.swing.imageManager.util.Constants;
+import com.swing.imageManager.util.Helper;
 
 /**
  * @author Ravi
