@@ -150,10 +150,11 @@ public class DbxUploader implements Runnable {
 		LOGGER.info("Uploading file [" + from + "] to [" + to + "]");
 		DbxEntry metadata = _dbxClient.getMetadata(to);
 		File file = new File(from);
-		FileInputStream in = new FileInputStream(file);
-		if (metadata != null)
-			_dbxClient.delete(to);
-		_dbxClient.uploadFile(to, DbxWriteMode.add(), -1, in);
+		try (FileInputStream in = new FileInputStream(file)) {
+			if (metadata != null)
+				_dbxClient.delete(to);
+			_dbxClient.uploadFile(to, DbxWriteMode.add(), -1, in);
+		}
 		LOGGER.info("Uploaded file [" + from + "] to [" + to + "]");
 	}
 }

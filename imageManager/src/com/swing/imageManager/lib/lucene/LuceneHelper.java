@@ -3,7 +3,6 @@ package com.swing.imageManager.lib.lucene;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -86,18 +85,17 @@ public class LuceneHelper {
 			//
 			// iwc.setRAMBufferSizeMB(256.0);
 
-			IndexWriter writer = new IndexWriter(dir, iwc);
-			indexDocs(writer, docDir);
+			try (IndexWriter writer = new IndexWriter(dir, iwc)) {
+				indexDocs(writer, docDir);
 
-			// NOTE: if you want to maximize search performance,
-			// you can optionally call forceMerge here. This can be
-			// a terribly costly operation, so generally it's only
-			// worth it when your index is relatively static (ie
-			// you're done adding documents to it):
-			//
-			// writer.forceMerge(1);
-
-			writer.close();
+				// NOTE: if you want to maximize search performance,
+				// you can optionally call forceMerge here. This can be
+				// a terribly costly operation, so generally it's only
+				// worth it when your index is relatively static (ie
+				// you're done adding documents to it):
+				//
+				// writer.forceMerge(1);
+			}
 
 		} catch (IOException e) {
 			LOGGER.info(e.getMessage()); // log
@@ -122,18 +120,9 @@ public class LuceneHelper {
 					}
 				}
 			} else {
-				FileInputStream fis;
-				try {
-					fis = new FileInputStream(file);
-				} catch (FileNotFoundException fnfe) {
-					LOGGER.info(fnfe.getMessage());
-					// at least on windows, some temporary files raise this
-					// exception with an "access denied" message
-					// checking if the file can be read doesn't help
-					return;
-				}
-
-				try {
+				try (FileInputStream fis = new FileInputStream(file);
+						BufferedReader br = new BufferedReader(
+								new InputStreamReader(fis, "UTF-8"))) {
 					// make a new, empty document
 					Document doc = new Document();
 
@@ -170,8 +159,7 @@ public class LuceneHelper {
 					// encoding.
 					// If that's not the case searching for special characters
 					// will fail.
-					doc.add(new TextField("contents", new BufferedReader(
-							new InputStreamReader(fis, "UTF-8"))));
+					doc.add(new TextField("contents", br));
 
 					if (writer.getConfig().getOpenMode() == OpenMode.CREATE) {
 						// New index, so we just add the document (no old
@@ -191,12 +179,6 @@ public class LuceneHelper {
 
 				} catch (IOException e) {
 					LOGGER.info(e.getMessage()); // log
-				} finally {
-					try {
-						fis.close();
-					} catch (IOException e) {
-						LOGGER.info(e.getMessage()); // log
-					}
 				}
 			}
 		}
@@ -204,24 +186,25 @@ public class LuceneHelper {
 	}
 	
 	public static List<String> doSearch(String searchText) throws IOException, ParseException {
-		IndexReader reader = DirectoryReader.open(FSDirectory
+		List<String> fileNames = new ArrayList<String>();
+		try (IndexReader reader = DirectoryReader.open(FSDirectory
 				.open(new File(Constants.LOCAL_INDEX_PATH)));
-		IndexSearcher searcher = new IndexSearcher(reader);
-		Analyzer analyzer = new StandardAnalyzer(
-				Version.parseLeniently("4.0"));
+				Analyzer analyzer = new StandardAnalyzer(
+						Version.parseLeniently("4.0"))) {
+			IndexSearcher searcher = new IndexSearcher(reader);
 
-		QueryParser parser = new QueryParser(
-				Version.parseLeniently("4.0"), field, analyzer);
-		String line = searchText;
+			QueryParser parser = new QueryParser(Version.parseLeniently("4.0"),
+					field, analyzer);
+			String line = searchText;
 
-		Query query = parser.parse(line);
-		// System.out.println("Searching for: " +
-		// query.toString(field)); // log
-		
-		List<String> fileNames = doPagingSearch(new BufferedReader(new InputStreamReader(
-				System.in, "UTF-8")), searcher, query, 10, false, true);
+			Query query = parser.parse(line);
+			// System.out.println("Searching for: " +
+			// query.toString(field)); // log
 
-		reader.close();
+			fileNames = doPagingSearch(new BufferedReader(
+					new InputStreamReader(System.in, "UTF-8")), searcher,
+					query, 10, false, true);
+		}
 		
 		return fileNames;
 	}

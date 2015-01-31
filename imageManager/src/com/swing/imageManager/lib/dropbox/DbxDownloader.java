@@ -141,9 +141,9 @@ public class DbxDownloader implements Runnable {
 
 	private String getContent(File file) throws IOException {
 		String content = null;
-		BufferedReader br = new BufferedReader(new FileReader(file));
-		content = br.readLine();
-		br.close();
+		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+			content = br.readLine();
+		}
 		return content;
 	}
 
@@ -211,27 +211,27 @@ public class DbxDownloader implements Runnable {
 		List<String> additions = new ArrayList<String>();
 		List<String> deletions = new ArrayList<String>();
 
-		BufferedReader br = null;
 		String str;
 
-		br = new BufferedReader(new FileReader(Constants.LOCAL_KEY_DETAILS_PATH
-				+ "/" + fileName));
-		while ((str = br.readLine()) != null)
-			downloaded.add(str.trim());
-		br.close();
+		try (BufferedReader br = new BufferedReader(new FileReader(
+				Constants.LOCAL_KEY_DETAILS_PATH + "/" + fileName))) {
+			while ((str = br.readLine()) != null)
+				downloaded.add(str.trim());
+		}
 
 		File histFile = new File(Constants.TEMP_DIFF_KEY_DETAILS_PATH + "/"
 				+ fileName);
 		if (histFile.exists()) {
-			br = new BufferedReader(new FileReader(histFile));
-			while ((str = br.readLine()) != null) {
-				str = str.trim();
-				if (str.charAt(0) == '+')
-					additions.add(str.substring(2));
-				else
-					deletions.add(str.substring(2));
+			try (BufferedReader br = new BufferedReader(
+					new FileReader(histFile))) {
+				while ((str = br.readLine()) != null) {
+					str = str.trim();
+					if (str.charAt(0) == '+')
+						additions.add(str.substring(2));
+					else
+						deletions.add(str.substring(2));
+				}
 			}
-			br.close();
 			
 			for (String addition : additions) {
 				if (!downloaded.contains(addition))
@@ -243,45 +243,42 @@ public class DbxDownloader implements Runnable {
 			}
 		}
 
-		BufferedWriter writer = new BufferedWriter(new FileWriter(
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(
 				Constants.LOCAL_KEY_DETAILS_PATH + "/" + fileName));
-		BufferedWriter writer1 = new BufferedWriter(new FileWriter(
-				Constants.LOCAL_KEYWORDS_PATH + "/" + fileName));
-		Pattern p = Pattern.compile(Constants.KEYWORD_DETAIL_PATTERN);
-		Matcher m;
-		for (String keyDetail : downloaded) {
-			m = p.matcher(keyDetail);
-			if (!m.find()) {
-				writer.close();
-				writer1.close();
+				BufferedWriter writer1 = new BufferedWriter(new FileWriter(
+						Constants.LOCAL_KEYWORDS_PATH + "/" + fileName))) {
+			Pattern p = Pattern.compile(Constants.KEYWORD_DETAIL_PATTERN);
+			Matcher m;
+			for (String keyDetail : downloaded) {
+				m = p.matcher(keyDetail);
+				
+				if (!m.find()) {
+					// for debugging purpose
+					LOGGER.error("Wanted: " + Constants.KEYWORD_DETAIL_PATTERN);
+					LOGGER.error("Got: " + keyDetail);
 
-				// for debugging purpose
-				LOGGER.error("Wanted: " + Constants.KEYWORD_DETAIL_PATTERN);
-				LOGGER.error("Got: " + keyDetail);
+					throw new IOException("Illegal format");
+				}
 
-				throw new IOException("Illegal format");
+				String key = m.group(5);
+				writer.append(keyDetail);
+				writer1.append(key);
 			}
-
-			String key = m.group(5);
-			writer.append(keyDetail);
-			writer1.append(key);
 		}
-		writer.close();
-		writer1.close();
 	}
 
 	private void downloadFile(DbxEntry.File dbxFile, File localFile)
 			throws DbxException, IOException {
-		FileOutputStream outputStream = new FileOutputStream(localFile);
-		_dbxClient.getFile(dbxFile.path, null, outputStream);
-		outputStream.close();
+		try (FileOutputStream outputStream = new FileOutputStream(localFile)) {
+			_dbxClient.getFile(dbxFile.path, null, outputStream);
+		}
 		LOGGER.info("Downloaded <" + dbxFile.path + ">");
 	}
 
 	private void updateFile(File file, String content) throws IOException {
-		BufferedWriter writer = new BufferedWriter(new FileWriter(file));
-		writer.write(content);
-		writer.close();
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+			writer.write(content);
+		}
 		LOGGER.info("Updated <" + file.getAbsolutePath() + "> to have <"
 				+ content + ">");
 	}

@@ -61,14 +61,16 @@ public class TesseractSwingWorker extends SwingWorker<Void, Void> {
 						+ fileName + " -l " + language + " && exit\"")
 				.waitFor();
 		fp.delete();
-		@SuppressWarnings("resource")
-		BufferedReader stdIn = new BufferedReader(new FileReader(fileName
-				+ ".txt"));
+		
 		String s, str = "";
-		while ((s = stdIn.readLine()) != null)
-			str = str + s + " ";
-		str = str.trim();
+		try (BufferedReader stdIn = new BufferedReader(new FileReader(fileName
+				+ ".txt"))) {
+			while ((s = stdIn.readLine()) != null)
+				str = str + s + " ";
+			str = str.trim();
+		}
 		LOGGER.info("<" + str + "> added to keywords");
+		
 		try (PrintWriter out = new PrintWriter(new BufferedWriter(
 				new FileWriter(Constants.LOCAL_KEY_DETAILS_PATH + "/"
 						+ imageNameText, true)));

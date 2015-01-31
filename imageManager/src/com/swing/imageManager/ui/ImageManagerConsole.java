@@ -25,7 +25,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -51,7 +50,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
-import javax.swing.SwingWorker;
 import javax.swing.border.BevelBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
@@ -62,11 +60,9 @@ import javax.swing.event.ListSelectionListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.swing.imageManager.lib.lucene.LuceneIndexer;
-import com.swing.imageManager.lib.model.Pair;
 import com.swing.imageManager.util.Constants;
-import com.swing.imageManager.util.Helper;
 import com.swing.imageManager.util.MySimpleFileVisitor;
+import com.swing.imageManager.util.swingWorker.EditKeysSwingWorker;
 import com.swing.imageManager.util.swingWorker.SearchingSwingWorker;
 import com.swing.imageManager.util.swingWorker.TesseractSwingWorker;
 
@@ -693,13 +689,11 @@ public class ImageManagerConsole extends JComponent {
 			loadedRectangleList.clear();
 			rectangleList.clear();
 			isSelectedRectangleList.clear();
-			
-			try {
-				@SuppressWarnings("resource")
-				// remove it if needed
-				BufferedReader br = new BufferedReader(new FileReader(
-						Constants.LOCAL_KEY_DETAILS_PATH + "/"
-								+ fileNameList.get(index) + ".txt"));
+
+			try (BufferedReader br = new BufferedReader(new FileReader(
+					Constants.LOCAL_KEY_DETAILS_PATH + "/"
+							+ fileNameList.get(index) + ".txt"))) {
+
 				String curLine;
 				while ((curLine = br.readLine()) != null) {
 					String pattern = "(\\d*):(\\d*):(\\d*):(\\d*):(.*)";
@@ -818,49 +812,8 @@ public class ImageManagerConsole extends JComponent {
 	}
 
 	protected void modifyKeyFiles(final String diff) {
-		SwingWorker<Void, Void> editFiles = new SwingWorker<Void, Void>() {
-			@Override
-			protected Void doInBackground() throws Exception {
-				try {
-					PrintWriter out = new PrintWriter(
-							Constants.LOCAL_KEY_DETAILS_PATH + "/"
-									+ fileNameList.get(selectedFileNumber)
-									+ ".txt");
-					PrintWriter out1 = new PrintWriter(
-							Constants.LOCAL_KEYWORDS_PATH + "/"
-									+ fileNameList.get(selectedFileNumber)
-									+ ".txt");
-					PrintWriter out2 = new PrintWriter(
-							Constants.TEMP_DIFF_KEY_DETAILS_PATH + "/"
-									+ fileNameList.get(selectedFileNumber)
-									+ ".txt");
-					for (int i = 0; i < loadedRectangleList.size(); ++i) {
-						Rectangle rect = loadedRectangleList.get(i);
-						out.println(rect.x + ":" + rect.y + ":" + rect.width
-								+ ":" + rect.height + ":"
-								+ keywordListModel.elementAt(i));
-						out1.println(keywordListModel.elementAt(i) + " ");
-					}
-					out2.println(diff);
-					out.close();
-					out1.close();
-					out2.close();
-					Helper.UploadQueue.enque(new Pair(
-							Constants.LOCAL_KEY_DETAILS_PATH + "/"
-									+ fileNameList.get(selectedFileNumber)
-									+ ".txt", Constants.DBX_KEY_DETAILS_PATH
-									+ "/"
-									+ fileNameList.get(selectedFileNumber)
-									+ ".txt"));
-					LuceneIndexer.indexHelper();
-				} catch (IOException e) {
-					LOGGER.info(e.getMessage());// check the
-												// exceptions
-				}
-				return null;
-			}
-		};
-		editFiles.execute();
+		new EditKeysSwingWorker(loadedRectangleList, keywordListModel,
+				fileNameList.get(selectedFileNumber), diff).execute();
 	}
 
 }

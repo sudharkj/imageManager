@@ -25,10 +25,10 @@ public class ImageManager {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader(
-					Constants.DBX_DIR_LOC_FILE_NAME));
+		LOGGER.info("Use Java SE 7 or above for expected functionality");
+		
+		try (BufferedReader br = new BufferedReader(new FileReader(
+				Constants.DBX_DIR_LOC_FILE_NAME))) {
 			String temp = br.readLine();
 			Constants.LOCAL_BASE_PATH = (temp == null) ? "" : temp.trim();
 			if (Constants.LOCAL_BASE_PATH.isEmpty()) {
@@ -42,14 +42,6 @@ public class ImageManager {
 					+ "/thumbImages";
 		} catch (IOException e) {
 			closeApplication("Error reading <dbx-dir-loc>: " + e.getMessage());
-		} finally {
-			if (br != null) {
-				try {
-					br.close();
-				} catch (IOException e) {
-					LOGGER.error(e.getMessage());
-				}
-			}
 		}
 
 		try {

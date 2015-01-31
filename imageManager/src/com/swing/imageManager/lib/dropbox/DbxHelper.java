@@ -68,9 +68,9 @@ public class DbxHelper {
 				+ "Enter the authorization code here: ");
 
 		String code = null;
-		try {
-			code = new BufferedReader(new InputStreamReader(System.in))
-					.readLine();
+		try (BufferedReader br = new BufferedReader(new InputStreamReader(
+				System.in))) {
+			code = br.readLine();
 		} catch (IOException e) {
 			LOGGER.info("Error reading <code>: " + e.getMessage());
 		}
