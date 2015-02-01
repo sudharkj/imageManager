@@ -154,7 +154,7 @@ public class ImageManagerConsole extends JComponent {
 	private void initializeVariables() {
 
 		LOCAL_IMAGES_PATH_PATH = Paths.get(Constants.LOCAL_IMAGES_PATH);
-		
+
 		fileNameList = new ArrayList<>();
 
 		loadedRectangleList = new ArrayList<Rectangle>();
@@ -164,7 +164,6 @@ public class ImageManagerConsole extends JComponent {
 		topLeftPoint = new Point();
 		bottomRightPoint = topLeftPoint;
 
-		loadedImage = null;
 		searchText = "";
 
 		consoleWidth = 800;
@@ -215,6 +214,7 @@ public class ImageManagerConsole extends JComponent {
 		JButton refreshButton = new JButton("");
 		refreshButton.setIcon(new ImageIcon(Constants.REFRESH_ICON_PATH));
 		refreshButton.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				try {
 					loadFiles();
@@ -242,20 +242,24 @@ public class ImageManagerConsole extends JComponent {
 		searchTextField.setColumns(10);
 		searchTextField.getDocument().addDocumentListener(
 				new DocumentListener() {
+					@Override
 					public void changedUpdate(DocumentEvent e) {
 						modify();
 					}
 
+					@Override
 					public void removeUpdate(DocumentEvent e) {
 						modify();
 					}
 
+					@Override
 					public void insertUpdate(DocumentEvent e) {
 						modify();
 					}
 
 					private void modify() {
 						searchText = searchTextField.getText();
+						searchText = searchText.trim();
 						try {
 							loadFiles();
 						} catch (IOException e) {
@@ -272,9 +276,10 @@ public class ImageManagerConsole extends JComponent {
 		languageComboBox.setModel(new DefaultComboBoxModel<>(new String[] {
 				"English", "Hindi" }));
 		languageComboBox.addActionListener(new ActionListener() {
-			
+
+			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				
+
 				generateMouseClickEvent();
 			}
 		});
@@ -283,6 +288,7 @@ public class ImageManagerConsole extends JComponent {
 		JButton showLog = new JButton();
 		showLog.setIcon(new ImageIcon(Constants.LOG_ICON_PATH));
 		showLog.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				LOGGER.info("Feature yet to be implemented");
 			}
@@ -294,14 +300,15 @@ public class ImageManagerConsole extends JComponent {
 		imageSplitPane = new JSplitPane();
 		imageSplitPane.setDividerLocation(dividerLocation);
 		imageSplitPane.addPropertyChangeListener(new PropertyChangeListener() {
-			
+
+			@Override
 			public void propertyChange(PropertyChangeEvent arg0) {
-				
+
 				final int previousImageWidth = imageWidth;
 				final int previousImageHeight = imageHeight;
 				int change = dividerLocation
 						- imageSplitPane.getDividerLocation();
-				
+
 				// go for changes only when change is not zero
 				if (((change < 0 && -change < imageWidth) || (change > 0 && change < keywordWidth))) {
 					keywordWidth = keywordWidth + change;
@@ -353,9 +360,9 @@ public class ImageManagerConsole extends JComponent {
 			}
 
 			private void rectangleComplete(MouseEvent arg0) {
-				
+
 				if (isMouseDown && loadedImage != null) {
-					
+
 					// clear previous rectangle
 					int pt[] = normalise();
 					if (pt[2] != 0 && pt[3] != 0)
@@ -363,7 +370,7 @@ public class ImageManagerConsole extends JComponent {
 								pt[3]);
 					bottomRightPoint = arg0.getPoint();
 					paintComponent(imageLabel.getGraphics());
-					
+
 					// draw the new rectangle
 					pt = normalise();
 					if (pt[2] != 0 && pt[3] != 0) {
@@ -384,8 +391,9 @@ public class ImageManagerConsole extends JComponent {
 				loadedRectangleList.add(new Rectangle(par[0], par[1], par[2],
 						par[3]));
 				if (par[2] != 0 && par[3] != 0) {
-					new TesseractSwingWorker(keywordListModel, (BufferedImage) loadedImage,
-							fileNameList.get(selectedFileNumber),
+					new TesseractSwingWorker(keywordListModel,
+							(BufferedImage) loadedImage, fileNameList
+									.get(selectedFileNumber),
 							LANG[languageComboBox.getSelectedIndex()], par,
 							rectangleList.size()).execute();
 				}
@@ -450,6 +458,7 @@ public class ImageManagerConsole extends JComponent {
 		JButton edit = new JButton("");
 		edit.setIcon(new ImageIcon(Constants.EDIT_ICON_PATH));
 		edit.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				int ind = keywordList.getSelectedIndex();
 				if (ind == -1) {
@@ -477,6 +486,7 @@ public class ImageManagerConsole extends JComponent {
 		buttonPanel.add(edit);
 		JButton minus = new JButton("-");
 		minus.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				int ind = keywordList.getSelectedIndex();
 				if (ind == -1) {
@@ -488,8 +498,7 @@ public class ImageManagerConsole extends JComponent {
 					Rectangle rectangle = loadedRectangleList.remove(ind);
 					rectangleList.remove(ind);
 					isSelectedRectangleList.remove(ind);
-					LOGGER.info("<" + keyword
-							+ "> removed from keywords");
+					LOGGER.info("<" + keyword + "> removed from keywords");
 					modifyKeyFiles("-:" + rectangle.x + ":" + rectangle.y + ":"
 							+ rectangle.height + ":" + rectangle.width + ":"
 							+ keyword);
@@ -506,6 +515,7 @@ public class ImageManagerConsole extends JComponent {
 
 		thumbIconList = new JList<ImageIcon>();
 		thumbIconList.addListSelectionListener(new ListSelectionListener() {
+			@Override
 			public void valueChanged(ListSelectionEvent lsevt) {
 				/*
 				 * 2 ListSelectionEvents are dispatched when the JList is
@@ -647,12 +657,10 @@ public class ImageManagerConsole extends JComponent {
 		 * trim the text if the search text is empty load all files else load
 		 * only the files containing the keyword
 		 */
-		searchText = searchText.trim();
 		if (searchText.isEmpty()) {
 			// Load the all file in the application
-			Files.walkFileTree(LOCAL_IMAGES_PATH_PATH,
-					new MySimpleFileVisitor(thumbIconListModel, fileNameList,
-							searchText));
+			Files.walkFileTree(LOCAL_IMAGES_PATH_PATH, new MySimpleFileVisitor(
+					thumbIconListModel, fileNameList, searchText));
 		} else {
 			// Load selected files in the application
 			new SearchingSwingWorker(thumbIconListModel, fileNameList,
@@ -678,7 +686,7 @@ public class ImageManagerConsole extends JComponent {
 					+ fileNameList.size() + ")");
 			title.setTitleJustification(TitledBorder.CENTER);
 			imageSplitPane.setBorder(title);
-			
+
 			loadedImage = ImageIO.read(new File(Constants.LOCAL_IMAGES_PATH
 					+ "/" + fileNameList.get(index)));
 			loadedImageWidth = loadedImage.getWidth(null);

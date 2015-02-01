@@ -16,20 +16,21 @@ import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 
 public class MySimpleFileVisitor extends SimpleFileVisitor<Path> {
-	
+
 	private DefaultListModel<ImageIcon> thumbIconListModel;
 	private List<String> fileNameList;
 	private String searchText;
-	
-	public MySimpleFileVisitor(DefaultListModel<ImageIcon> thumbIconListModel, List<String> fileNameList, String searchText) {
+
+	public MySimpleFileVisitor(DefaultListModel<ImageIcon> thumbIconListModel,
+			List<String> fileNameList, String searchText) {
 		this.thumbIconListModel = thumbIconListModel;
 		this.fileNameList = fileNameList;
 		this.searchText = searchText;
 	}
-	
+
 	@Override
-	public FileVisitResult visitFile(Path file,
-			BasicFileAttributes attrs) throws IOException {
+	public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+			throws IOException {
 		String fileName = file.getFileName().toString();
 		BufferedImage curImage;
 		try {
@@ -37,8 +38,8 @@ public class MySimpleFileVisitor extends SimpleFileVisitor<Path> {
 			// proper format
 			// System.out.format("%s (%s) added to the ArrayList\n",fileName,file.toString());
 			// // log
-			curImage = ImageIO.read(new File(
-					Constants.LOCAL_THUMBS_PATH + "\\" + fileName));
+			curImage = ImageIO.read(new File(Constants.LOCAL_THUMBS_PATH + "\\"
+					+ fileName));
 			thumbIconListModel.addElement(new ImageIcon(curImage));
 			fileNameList.add(fileName);
 			// thumbsScrollPane.setViewportView(thumbIconList); //
@@ -51,8 +52,8 @@ public class MySimpleFileVisitor extends SimpleFileVisitor<Path> {
 	}
 
 	@Override
-	public FileVisitResult preVisitDirectory(Path dir,
-			BasicFileAttributes attrs) throws IOException {
+	public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+			throws IOException {
 		// System.out.format("Scanning %s ...\n",dir); // log
 		return FileVisitResult.CONTINUE;
 	}
@@ -82,7 +83,7 @@ public class MySimpleFileVisitor extends SimpleFileVisitor<Path> {
 				Constants.LOCAL_THUMBS_PATH + "/" + fileName));
 
 		// this will add the items
-		if (searchText.trim().isEmpty()) {
+		if (searchText.isEmpty()) {
 			thumbIconListModel.addElement(new ImageIcon(resizedImage));
 			fileNameList.add(fileName);
 		}

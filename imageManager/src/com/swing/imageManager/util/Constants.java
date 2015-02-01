@@ -3,7 +3,7 @@ package com.swing.imageManager.util;
 import com.swing.imageManager.ImageManager;
 
 public class Constants {
-	
+
 	public final static String APPLICATION_NAME;
 
 	public final static String CACHE_PATH;
@@ -51,7 +51,7 @@ public class Constants {
 
 	static {
 		APPLICATION_NAME = ImageManager.class.getName();
-		
+
 		CACHE_PATH = "cache";
 		DETAILS_PATH = CACHE_PATH + "/details";
 		ICONS_PATH = CACHE_PATH + "/icons";

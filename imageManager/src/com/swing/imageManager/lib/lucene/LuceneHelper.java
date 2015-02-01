@@ -42,7 +42,8 @@ public class LuceneHelper {
 
 	/**
 	 * Function initializes the required variables before indexing
-	 * @throws IOException 
+	 * 
+	 * @throws IOException
 	 */
 	public static void indexFiles() throws IOException {
 		String docsPath = Constants.LOCAL_KEYWORDS_PATH;
@@ -101,9 +102,10 @@ public class LuceneHelper {
 	 * 
 	 * @param writer
 	 * @param file
-	 * @throws IOException 
+	 * @throws IOException
 	 */
-	private static void indexDocs(IndexWriter writer, File file) throws IOException {
+	private static void indexDocs(IndexWriter writer, File file)
+			throws IOException {
 		// do not try to index files that cannot be read
 		if (file.canRead()) {
 			if (file.isDirectory()) {
@@ -175,7 +177,7 @@ public class LuceneHelper {
 			}
 		}
 	}
-	
+
 	public static List<String> doSearch(String searchText) throws Exception {
 		List<String> fileNames = new ArrayList<String>();
 		try (IndexReader reader = DirectoryReader.open(FSDirectory
@@ -196,13 +198,13 @@ public class LuceneHelper {
 
 			fileNames = doPagingSearch(br, searcher, query, 10, false, true);
 		}
-		
+
 		return fileNames;
 	}
 
 	private static List<String> doPagingSearch(BufferedReader in,
-			IndexSearcher searcher, Query query, int hitsPerPage,
-			boolean raw, boolean interactive) throws IOException {
+			IndexSearcher searcher, Query query, int hitsPerPage, boolean raw,
+			boolean interactive) throws IOException {
 		TopDocs results;
 		List<String> fileNames = new ArrayList<String>();
 		results = searcher.search(query, 5 * hitsPerPage);

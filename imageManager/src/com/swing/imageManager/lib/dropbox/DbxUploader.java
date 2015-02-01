@@ -18,8 +18,8 @@ import com.swing.imageManager.util.Helper;
 public class DbxUploader implements Runnable {
 
 	private final static Logger LOGGER;
-	
 	public final static String CLASS_NAME;
+
 	private final long timeLimit = 5 * 60 * 1000;
 	private final long uploadLimit = 4 * 60 * 1000;
 
@@ -27,7 +27,7 @@ public class DbxUploader implements Runnable {
 
 	static {
 		CLASS_NAME = "DbxUploader";
-		
+
 		LOGGER = LogManager.getLogger(DbxUploader.class);
 	}
 
@@ -46,7 +46,7 @@ public class DbxUploader implements Runnable {
 	}
 
 	private synchronized void upload() throws Exception {
-		DbxEntry entry = null;
+		DbxEntry entry;
 		long startTime = 0, curTime = 0;
 
 		entry = _dbxClient.getMetadata(Constants.DBX_INDEX_FILE_NAME);
@@ -95,7 +95,8 @@ public class DbxUploader implements Runnable {
 				|| (curTime - startTime) > uploadLimit) {
 			startTime = curTime = 0;
 
-			uploadFile(Constants.LOCAL_INDEX_FILE_NAME, Constants.DBX_INDEX_FILE_NAME);
+			uploadFile(Constants.LOCAL_INDEX_FILE_NAME,
+					Constants.DBX_INDEX_FILE_NAME);
 			entry = _dbxClient.getMetadata(Constants.DBX_INDEX_FILE_NAME);
 			listing = _dbxClient
 					.getMetadataWithChildren(Constants.DBX_TIME_STAMP_PATH);

@@ -15,7 +15,7 @@ public class UploadQueue {
 	static {
 		LOGGER = LogManager.getLogger(UploadQueue.class);
 	}
-	
+
 	public UploadQueue() {
 		queue = new ArrayList<Pair>();
 	}

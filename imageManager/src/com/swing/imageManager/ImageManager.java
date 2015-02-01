@@ -10,15 +10,15 @@ import javax.swing.UIManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.swing.imageManager.util.Constants;
-import com.swing.imageManager.util.Helper;
 import com.swing.imageManager.lib.dropbox.DbxHelper;
 import com.swing.imageManager.ui.ImageManagerConsole;
+import com.swing.imageManager.util.Constants;
+import com.swing.imageManager.util.Helper;
 
 public class ImageManager {
 
 	private final static Logger LOGGER;
-	
+
 	static {
 		LOGGER = LogManager.getLogger(ImageManager.class);
 	}
@@ -32,7 +32,7 @@ public class ImageManager {
 		LOGGER.info("Use Java SE 7 or above for expected functionality");
 
 		try {
-			String temp = "";
+			String temp;
 			try (BufferedReader br = new BufferedReader(new FileReader(
 					Constants.DBX_DIR_LOC_FILE_NAME))) {
 				temp = br.readLine();
@@ -57,7 +57,7 @@ public class ImageManager {
 			}
 
 			initApplication();
-			
+
 		} catch (Exception e) {
 			e.printStackTrace();
 			closeApplication("Error initializing " + Constants.APPLICATION_NAME
@@ -65,6 +65,7 @@ public class ImageManager {
 		}
 
 		EventQueue.invokeLater(new Runnable() {
+			@Override
 			public void run() {
 				try {
 					new ImageManagerConsole();
@@ -80,7 +81,8 @@ public class ImageManager {
 
 	/**
 	 * TODO: create folders used for application
-	 * @throws IOException 
+	 * 
+	 * @throws IOException
 	 */
 	public static void initApplication() throws IOException {
 		Helper.getFile(Constants.LOCAL_INDEX_FILE_NAME);

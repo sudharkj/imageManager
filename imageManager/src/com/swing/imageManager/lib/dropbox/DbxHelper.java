@@ -29,7 +29,7 @@ import com.swing.imageManager.util.Helper;
 public class DbxHelper {
 
 	private final static Logger LOGGER;
-	
+
 	public final static String CLASS_NAME;
 
 	static {
@@ -72,15 +72,14 @@ public class DbxHelper {
 				+ "3. Copy the authorization code.\n"
 				+ "Enter the authorization code here: ");
 
-		String code = null;
+		String code;
 		try (BufferedReader br = new BufferedReader(new InputStreamReader(
 				System.in))) {
 			code = br.readLine();
 		}
-		if (code == null) {
-			LOGGER.info("Obtained <code>: null");
+		if (code != null) {
+			code = code.trim();
 		}
-		code = code.trim();
 
 		DbxAuthFinish authFinish = webAuth.finish(code);
 		LOGGER.info("Authorization complete.\n" + "- User ID: "

@@ -35,7 +35,7 @@ import com.swing.imageManager.util.Helper;
 public class DbxDownloader implements Runnable {
 
 	private final static Logger LOGGER;
-	
+
 	private DbxClient _dbxClient;
 	private String _cursor;
 
@@ -48,7 +48,7 @@ public class DbxDownloader implements Runnable {
 
 	DbxDownloader() throws FileLoadException {
 		LastSyncedTime = new Date();
-		
+
 		_dbxClient = DbxHelper.getDbxClient();
 	}
 
@@ -63,12 +63,9 @@ public class DbxDownloader implements Runnable {
 	}
 
 	private synchronized void download() throws Exception {
-		File deltaCursorFile = null;
-		File syncTimeFile = null;
-		String lastSyncedStrTime = null;
-
-		deltaCursorFile = Helper.getFile(Constants.DBX_DELTA_CURSOR_FILE_NAME);
-		syncTimeFile = Helper.getFile(Constants.LAST_SYNC_TIME_FILE_PATH);
+		File deltaCursorFile = Helper
+				.getFile(Constants.DBX_DELTA_CURSOR_FILE_NAME);
+		File syncTimeFile = Helper.getFile(Constants.LAST_SYNC_TIME_FILE_PATH);
 
 		// load cursor
 		_cursor = getContent(deltaCursorFile);
@@ -78,7 +75,7 @@ public class DbxDownloader implements Runnable {
 				+ ">: " + _cursor);
 
 		// load lastSyncedTime
-		lastSyncedStrTime = getContent(syncTimeFile);
+		String lastSyncedStrTime = getContent(syncTimeFile);
 		if (lastSyncedStrTime == null || lastSyncedStrTime.isEmpty())
 			LastSyncedTime.setTime(0);
 		else
@@ -90,7 +87,7 @@ public class DbxDownloader implements Runnable {
 		LatestSyncingTime = new Date();
 
 		// sync local files
-		DbxDelta<DbxEntry> deltaEntry = null;
+		DbxDelta<DbxEntry> deltaEntry;
 		do {
 			deltaEntry = _dbxClient.getDeltaWithPathPrefix(_cursor,
 					Constants.DBX_BASE_PATH);
@@ -114,7 +111,7 @@ public class DbxDownloader implements Runnable {
 	}
 
 	private String getContent(File file) throws IOException {
-		String content = null;
+		String content;
 		try (BufferedReader br = new BufferedReader(new FileReader(file))) {
 			content = br.readLine();
 		}
@@ -122,19 +119,21 @@ public class DbxDownloader implements Runnable {
 	}
 
 	private void manageEntry(DbxEntry.File dbxFile) throws Exception {
-		File localFile = null;
-		boolean useLastSyncedTime = true;
+		File localFile;
 
 		String path = dbxFile.path;
 		String parentPath = path.substring(0, path.lastIndexOf('/'));
 		String fileName = path.substring(path.lastIndexOf('/') + 1);
+
+		boolean useLastSyncedTime = true;
 		boolean changedKeyDetails = false;
 
 		if (parentPath.contains(Constants.DBX_IMAGES_PATH)) {
 			localFile = new File(Constants.LOCAL_IMAGES_PATH + "/" + fileName);
 			useLastSyncedTime = false;
 		} else if (parentPath.contains(Constants.DBX_KEY_DETAILS_PATH)) {
-			localFile = new File(Constants.LOCAL_KEY_DETAILS_PATH + "/" + fileName);
+			localFile = new File(Constants.LOCAL_KEY_DETAILS_PATH + "/"
+					+ fileName);
 			changedKeyDetails = true;
 		} else {
 			return;
@@ -194,7 +193,7 @@ public class DbxDownloader implements Runnable {
 						deletions.add(str.substring(2));
 				}
 			}
-			
+
 			for (String addition : additions) {
 				if (!downloaded.contains(addition))
 					downloaded.add(addition);
@@ -213,7 +212,7 @@ public class DbxDownloader implements Runnable {
 			Matcher m;
 			for (String keyDetail : downloaded) {
 				m = p.matcher(keyDetail);
-				
+
 				if (!m.find()) {
 					// for debugging purpose
 					LOGGER.error("Wanted: " + Constants.KEYWORD_DETAIL_PATTERN);
