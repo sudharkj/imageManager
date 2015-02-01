@@ -8,8 +8,6 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -23,7 +21,6 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
@@ -37,14 +34,17 @@ import com.swing.imageManager.util.Constants;
 
 public class LuceneHelper {
 
-	final static Logger LOGGER = LogManager.getLogger(LuceneHelper.class);
-	
-	private static String field = "contents";
+	private static String field;
+
+	static {
+		field = "contents";
+	}
 
 	/**
 	 * Function initializes the required variables before indexing
+	 * @throws IOException 
 	 */
-	public static void indexFiles() {
+	public static void indexFiles() throws IOException {
 		String docsPath = Constants.LOCAL_KEYWORDS_PATH;
 		boolean create;
 		final File indDir = new File(Constants.LOCAL_INDEX_PATH);
@@ -62,43 +62,37 @@ public class LuceneHelper {
 		 * System.exit(1); }
 		 */
 
-		try {
-			Directory dir = FSDirectory.open(new File(Constants.LOCAL_INDEX_PATH));
-			Analyzer analyzer = new StandardAnalyzer(
-					Version.parseLeniently("4.0"));
-			IndexWriterConfig iwc = new IndexWriterConfig(
-					Version.parseLeniently("4.0"), analyzer);
+		Directory dir = FSDirectory.open(new File(Constants.LOCAL_INDEX_PATH));
+		Analyzer analyzer = new StandardAnalyzer(Version.parseLeniently("4.0"));
+		IndexWriterConfig iwc = new IndexWriterConfig(
+				Version.parseLeniently("4.0"), analyzer);
 
-			if (create) {
-				// Create a new index in the directory, removing any
-				// previously indexed documents:
-				iwc.setOpenMode(OpenMode.CREATE);
-			} else {
-				// Add new documents to an existing index:
-				iwc.setOpenMode(OpenMode.CREATE_OR_APPEND);
-			}
+		if (create) {
+			// Create a new index in the directory, removing any
+			// previously indexed documents:
+			iwc.setOpenMode(OpenMode.CREATE);
+		} else {
+			// Add new documents to an existing index:
+			iwc.setOpenMode(OpenMode.CREATE_OR_APPEND);
+		}
 
-			// Optional: for better indexing performance, if you
-			// are indexing many documents, increase the RAM
-			// buffer. But if you do this, increase the max heap
-			// size to the JVM (eg add -Xmx512m or -Xmx1g):
+		// Optional: for better indexing performance, if you
+		// are indexing many documents, increase the RAM
+		// buffer. But if you do this, increase the max heap
+		// size to the JVM (eg add -Xmx512m or -Xmx1g):
+		//
+		// iwc.setRAMBufferSizeMB(256.0);
+
+		try (IndexWriter writer = new IndexWriter(dir, iwc)) {
+			indexDocs(writer, docDir);
+
+			// NOTE: if you want to maximize search performance,
+			// you can optionally call forceMerge here. This can be
+			// a terribly costly operation, so generally it's only
+			// worth it when your index is relatively static (ie
+			// you're done adding documents to it):
 			//
-			// iwc.setRAMBufferSizeMB(256.0);
-
-			try (IndexWriter writer = new IndexWriter(dir, iwc)) {
-				indexDocs(writer, docDir);
-
-				// NOTE: if you want to maximize search performance,
-				// you can optionally call forceMerge here. This can be
-				// a terribly costly operation, so generally it's only
-				// worth it when your index is relatively static (ie
-				// you're done adding documents to it):
-				//
-				// writer.forceMerge(1);
-			}
-
-		} catch (IOException e) {
-			LOGGER.info(e.getMessage()); // log
+			// writer.forceMerge(1);
 		}
 	}
 
@@ -107,8 +101,9 @@ public class LuceneHelper {
 	 * 
 	 * @param writer
 	 * @param file
+	 * @throws IOException 
 	 */
-	private static void indexDocs(IndexWriter writer, File file) {
+	private static void indexDocs(IndexWriter writer, File file) throws IOException {
 		// do not try to index files that cannot be read
 		if (file.canRead()) {
 			if (file.isDirectory()) {
@@ -176,16 +171,12 @@ public class LuceneHelper {
 						writer.updateDocument(new Term("path", file.getPath()),
 								doc);
 					}
-
-				} catch (IOException e) {
-					LOGGER.info(e.getMessage()); // log
 				}
 			}
 		}
-
 	}
 	
-	public static List<String> doSearch(String searchText) throws IOException, ParseException {
+	public static List<String> doSearch(String searchText) throws Exception {
 		List<String> fileNames = new ArrayList<String>();
 		try (IndexReader reader = DirectoryReader.open(FSDirectory
 				.open(new File(Constants.LOCAL_INDEX_PATH)));
@@ -211,54 +202,49 @@ public class LuceneHelper {
 
 	private static List<String> doPagingSearch(BufferedReader in,
 			IndexSearcher searcher, Query query, int hitsPerPage,
-			boolean raw, boolean interactive) {
+			boolean raw, boolean interactive) throws IOException {
 		TopDocs results;
 		List<String> fileNames = new ArrayList<String>();
-		try {
-			results = searcher.search(query, 5 * hitsPerPage);
-			ScoreDoc[] hits = results.scoreDocs;
+		results = searcher.search(query, 5 * hitsPerPage);
+		ScoreDoc[] hits = results.scoreDocs;
 
-			int numTotalHits = results.totalHits;
-			// System.out.println(numTotalHits
-			// + " total matching documents"); // log
+		int numTotalHits = results.totalHits;
+		// System.out.println(numTotalHits
+		// + " total matching documents"); // log
 
-			int start = 0;
-			int end = Math.min(numTotalHits, hitsPerPage);
+		int start = 0;
+		int end = Math.min(numTotalHits, hitsPerPage);
 
-			while (start < end) {
-				end = Math.min(hits.length, start + hitsPerPage);
+		while (start < end) {
+			end = Math.min(hits.length, start + hitsPerPage);
 
-				for (int i = start; i < end; i++) {
-					Document doc = searcher.doc(hits[i].doc);
-					String path = doc.get("path");
-					if (path != null) {
-						// System.out.println((i+1) + ". " + path); //
-						// log
-						String file = path.substring(
-								path.lastIndexOf('\\') + 1,
-								path.lastIndexOf('.'));// System.out.println(new
-														// File(ThumbsPath+'\\'+file).getAbsolutePath());
-														// // log
-						fileNames.add(file);
-					} else {
-						throw new IOException("No defined path");
-					}
-
+			for (int i = start; i < end; i++) {
+				Document doc = searcher.doc(hits[i].doc);
+				String path = doc.get("path");
+				if (path != null) {
+					// System.out.println((i+1) + ". " + path); //
+					// log
+					String file = path.substring(path.lastIndexOf('\\') + 1,
+							path.lastIndexOf('.'));// System.out.println(new
+													// File(ThumbsPath+'\\'+file).getAbsolutePath());
+													// // log
+					fileNames.add(file);
+				} else {
+					throw new IOException("No defined path");
 				}
 
-				if (end == 0) {
-					break;
-				}
-
-				if (numTotalHits > end) {
-					if (start + hitsPerPage < numTotalHits)
-						start += hitsPerPage;
-					end = Math.min(numTotalHits, start + hitsPerPage);
-				} else
-					break;
 			}
-		} catch (Exception e) {
-			LOGGER.info(e.getMessage()); // log
+
+			if (end == 0) {
+				break;
+			}
+
+			if (numTotalHits > end) {
+				if (start + hitsPerPage < numTotalHits)
+					start += hitsPerPage;
+				end = Math.min(numTotalHits, start + hitsPerPage);
+			} else
+				break;
 		}
 		return fileNames;
 	}

@@ -22,11 +22,11 @@ import org.apache.logging.log4j.Logger;
 import com.dropbox.core.DbxClient;
 import com.dropbox.core.DbxDelta;
 import com.dropbox.core.DbxEntry;
-import com.dropbox.core.DbxException;
-import com.swing.imageManager.util.Constants;
-import com.swing.imageManager.util.Helper;
+import com.dropbox.core.json.JsonReader.FileLoadException;
 import com.swing.imageManager.lib.lucene.LuceneIndexer;
 import com.swing.imageManager.lib.model.Pair;
+import com.swing.imageManager.util.Constants;
+import com.swing.imageManager.util.Helper;
 
 /**
  * @author Ravi
@@ -34,57 +34,51 @@ import com.swing.imageManager.lib.model.Pair;
  */
 public class DbxDownloader implements Runnable {
 
-	private final static Logger LOGGER = LogManager
-			.getLogger(DbxDownloader.class);
-
+	private final static Logger LOGGER;
+	
 	private DbxClient _dbxClient;
 	private String _cursor;
 
-	private Date LastSyncedTime = new Date();
+	private Date LastSyncedTime;
 	private Date LatestSyncingTime;
 
-	DbxDownloader() {
+	static {
+		LOGGER = LogManager.getLogger(DbxDownloader.class);
+	}
+
+	DbxDownloader() throws FileLoadException {
+		LastSyncedTime = new Date();
+		
 		_dbxClient = DbxHelper.getDbxClient();
 	}
 
 	@Override
 	public void run() {
-		download();
+		try {
+			download();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("Error downloading recent updates: " + e.getMessage());
+		}
 	}
 
-	private synchronized void download() {
+	private synchronized void download() throws Exception {
 		File deltaCursorFile = null;
 		File syncTimeFile = null;
 		String lastSyncedStrTime = null;
 
-		try {
-			deltaCursorFile = Helper.getFile(Constants.DBX_DELTA_CURSOR_FILE_NAME);
-			syncTimeFile = Helper.getFile(Constants.LAST_SYNC_TIME_FILE_PATH);
-		} catch (IOException e) {
-			LOGGER.error("Error creating initial files: " + e.getMessage());
-		}
+		deltaCursorFile = Helper.getFile(Constants.DBX_DELTA_CURSOR_FILE_NAME);
+		syncTimeFile = Helper.getFile(Constants.LAST_SYNC_TIME_FILE_PATH);
 
 		// load cursor
-		try {
-			_cursor = getContent(deltaCursorFile);
-		} catch (IOException e) {
-			LOGGER.error("Error reading <" + deltaCursorFile.getAbsolutePath()
-					+ ">: " + e.getMessage());
-			return;
-		}
+		_cursor = getContent(deltaCursorFile);
 		if (_cursor == null)
 			_cursor = "";
 		LOGGER.info("Cursor value from <" + deltaCursorFile.getAbsolutePath()
 				+ ">: " + _cursor);
 
 		// load lastSyncedTime
-		try {
-			lastSyncedStrTime = getContent(syncTimeFile);
-		} catch (IOException e) {
-			LOGGER.error("Error reading <" + syncTimeFile.getAbsolutePath()
-					+ ">: " + e.getMessage());
-			return;
-		}
+		lastSyncedStrTime = getContent(syncTimeFile);
 		if (lastSyncedStrTime == null || lastSyncedStrTime.isEmpty())
 			LastSyncedTime.setTime(0);
 		else
@@ -96,44 +90,24 @@ public class DbxDownloader implements Runnable {
 		LatestSyncingTime = new Date();
 
 		// sync local files
-		try {
-			DbxDelta<DbxEntry> deltaEntry = null;
-			do {
-				deltaEntry = _dbxClient.getDeltaWithPathPrefix(_cursor,
-						Constants.DBX_BASE_PATH);
-				for (DbxDelta.Entry<DbxEntry> entry : deltaEntry.entries) {
-					if (entry.metadata.isFile()) {
-						manageEntry(entry.metadata.asFile());
-					}
+		DbxDelta<DbxEntry> deltaEntry = null;
+		do {
+			deltaEntry = _dbxClient.getDeltaWithPathPrefix(_cursor,
+					Constants.DBX_BASE_PATH);
+			for (DbxDelta.Entry<DbxEntry> entry : deltaEntry.entries) {
+				if (entry.metadata.isFile()) {
+					manageEntry(entry.metadata.asFile());
 				}
-			} while (deltaEntry.hasMore);
-			_cursor = deltaEntry.cursor;
-		} catch (DbxException e) {
-			LOGGER.info("Unknown exception occured: " + e.getMessage());
-			return;
-		} catch (Exception e) {
-			LOGGER.debug("Exception occured: " + e.getMessage());
-			return;
-		}
+			}
+		} while (deltaEntry.hasMore);
+		_cursor = deltaEntry.cursor;
 
 		// save the latest cursor
-		try {
-			updateFile(deltaCursorFile, _cursor);
-		} catch (IOException e) {
-			LOGGER.error("Error updating <" + deltaCursorFile.getAbsolutePath()
-					+ ">: " + e.getMessage());
-			return;
-		}
+		updateFile(deltaCursorFile, _cursor);
 
 		// save the LatestSyncingTime
-		try {
-			updateFile(syncTimeFile,
-					((Long) LatestSyncingTime.getTime()).toString());
-		} catch (IOException e) {
-			LOGGER.error("Error updating <" + syncTimeFile.getAbsolutePath()
-					+ ">: " + e.getMessage());
-			return;
-		}
+		updateFile(syncTimeFile,
+				((Long) LatestSyncingTime.getTime()).toString());
 
 		// TODO conditional indexing after download and upload to main server
 		LuceneIndexer.indexHelper();
@@ -185,21 +159,9 @@ public class DbxDownloader implements Runnable {
 
 		if (localFile != null
 				&& dbxFileModifiedTime.after(localFileModifiedTime)) {
-			try {
-				downloadFile(dbxFile, localFile);
-			} catch (DbxException | IOException e) {
-				LOGGER.error("Error downloading <" + dbxFile.path + ">: "
-						+ e.getMessage());
-				throw new Exception(e.getMessage());
-			}
+			downloadFile(dbxFile, localFile);
 			if (changedKeyDetails) {
-				try {
-					syncKeyDetails(fileName);
-				} catch (IOException e) {
-					LOGGER.error("Error synching <" + fileName + ">: "
-							+ e.getMessage());
-					throw new Exception(e.getMessage());
-				}
+				syncKeyDetails(fileName);
 				Helper.UploadQueue.enque(new Pair(localFile.getAbsolutePath(),
 						dbxFile.path));
 			}
@@ -268,7 +230,7 @@ public class DbxDownloader implements Runnable {
 	}
 
 	private void downloadFile(DbxEntry.File dbxFile, File localFile)
-			throws DbxException, IOException {
+			throws Exception {
 		try (FileOutputStream outputStream = new FileOutputStream(localFile)) {
 			_dbxClient.getFile(dbxFile.path, null, outputStream);
 		}

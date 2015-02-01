@@ -22,7 +22,6 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -489,7 +488,7 @@ public class ImageManagerConsole extends JComponent {
 					Rectangle rectangle = loadedRectangleList.remove(ind);
 					rectangleList.remove(ind);
 					isSelectedRectangleList.remove(ind);
-					LOGGER.info("<" + keywordListModel.get(ind)
+					LOGGER.info("<" + keyword
 							+ "> removed from keywords");
 					modifyKeyFiles("-:" + rectangle.x + ":" + rectangle.y + ":"
 							+ rectangle.height + ":" + rectangle.width + ":"
@@ -724,11 +723,6 @@ public class ImageManagerConsole extends JComponent {
 					keywordListModel.addElement(key);
 					// System.out.println(pr+": "+key); // log
 				}
-			} catch (FileNotFoundException e) {
-				LOGGER.info(e.getMessage());// log
-			} catch (IOException e) {
-				LOGGER.info(e.getMessage()); // log for corrupted
-												// file
 			}
 			// paintComponent(imageLabel.getGraphics()); // this doesn't work
 			// till

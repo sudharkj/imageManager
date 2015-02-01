@@ -1,15 +1,11 @@
 package com.swing.imageManager.util.swingWorker;
 
 import java.awt.Rectangle;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 
 import javax.swing.DefaultListModel;
 import javax.swing.SwingWorker;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import com.swing.imageManager.lib.lucene.LuceneIndexer;
 import com.swing.imageManager.lib.model.Pair;
@@ -18,16 +14,11 @@ import com.swing.imageManager.util.Helper;
 
 public class EditKeysSwingWorker extends SwingWorker<Void, Void> {
 
-	private final static Logger LOGGER;
 	private final String imageNameText;
 	private final String diff;
 
 	private List<Rectangle> loadedRectangleList;
 	private DefaultListModel<String> keywordListModel;
-
-	static {
-		LOGGER = LogManager.getLogger(EditKeysSwingWorker.class);
-	}
 
 	public EditKeysSwingWorker(List<Rectangle> loadedRectangleList,
 			DefaultListModel<String> keywordListModel, String imageName,
@@ -59,9 +50,6 @@ public class EditKeysSwingWorker extends SwingWorker<Void, Void> {
 					+ "/" + imageNameText, Constants.DBX_KEY_DETAILS_PATH + "/"
 					+ imageNameText));
 			LuceneIndexer.indexHelper();
-		} catch (IOException e) {
-			LOGGER.info(e.getMessage());// check the
-										// exceptions
 		}
 		return null;
 	}

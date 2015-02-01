@@ -6,7 +6,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.io.PrintWriter;
 
 import javax.imageio.ImageIO;
@@ -90,10 +89,6 @@ public class TesseractSwingWorker extends SwingWorker<Void, Void> {
 					+ "/" + imageNameText, Constants.DBX_KEY_DETAILS_PATH + "/"
 					+ imageNameText));
 			LuceneIndexer.indexHelper();
-		} catch (IOException e) {
-			LOGGER.info(e.getMessage());// check
-										// the
-										// exceptions
 		}
 		keywordListModel.addElement(str);
 		new File(fileName + ".txt").delete();

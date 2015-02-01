@@ -8,11 +8,14 @@ import org.apache.logging.log4j.Logger;
 
 public class UploadQueue {
 
-	private final static Logger LOGGER = LogManager
-			.getLogger(UploadQueue.class);
+	private final static Logger LOGGER;
 
 	private List<Pair> queue;
 
+	static {
+		LOGGER = LogManager.getLogger(UploadQueue.class);
+	}
+	
 	public UploadQueue() {
 		queue = new ArrayList<Pair>();
 	}

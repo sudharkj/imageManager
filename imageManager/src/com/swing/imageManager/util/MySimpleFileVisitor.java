@@ -15,20 +15,11 @@ import javax.imageio.ImageIO;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 public class MySimpleFileVisitor extends SimpleFileVisitor<Path> {
-
-	private final static Logger LOGGER;
 	
 	private DefaultListModel<ImageIcon> thumbIconListModel;
 	private List<String> fileNameList;
 	private String searchText;
-	
-	static {
-		LOGGER = LogManager.getLogger(MySimpleFileVisitor.class);
-	}
 	
 	public MySimpleFileVisitor(DefaultListModel<ImageIcon> thumbIconListModel, List<String> fileNameList, String searchText) {
 		this.thumbIconListModel = thumbIconListModel;
@@ -55,10 +46,6 @@ public class MySimpleFileVisitor extends SimpleFileVisitor<Path> {
 			// only if the scrollpane doesn't show all the images
 		} catch (IIOException e) {
 			addThumbImage(fileName);
-		} catch (Exception e) {
-			LOGGER.info(e.getMessage()); // log for invalid
-			// file
-			// format
 		}
 		return FileVisitResult.CONTINUE;
 	}

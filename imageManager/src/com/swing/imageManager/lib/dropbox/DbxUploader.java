@@ -2,7 +2,6 @@ package com.swing.imageManager.lib.dropbox;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.Date;
 
 import org.apache.logging.log4j.LogManager;
@@ -10,62 +9,57 @@ import org.apache.logging.log4j.Logger;
 
 import com.dropbox.core.DbxClient;
 import com.dropbox.core.DbxEntry;
-import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxWriteMode;
+import com.dropbox.core.json.JsonReader.FileLoadException;
+import com.swing.imageManager.lib.model.Pair;
 import com.swing.imageManager.util.Constants;
 import com.swing.imageManager.util.Helper;
-import com.swing.imageManager.lib.model.Pair;
 
 public class DbxUploader implements Runnable {
 
-	final static Logger LOGGER = LogManager.getLogger(DbxUploader.class);
-
-	public final static String CLASS_NAME = "DbxUploader";
+	private final static Logger LOGGER;
+	
+	public final static String CLASS_NAME;
 	private final long timeLimit = 5 * 60 * 1000;
 	private final long uploadLimit = 4 * 60 * 1000;
 
 	private DbxClient _dbxClient;
 
-	DbxUploader() {
+	static {
+		CLASS_NAME = "DbxUploader";
+		
+		LOGGER = LogManager.getLogger(DbxUploader.class);
+	}
+
+	DbxUploader() throws FileLoadException {
 		_dbxClient = DbxHelper.getDbxClient();
 	}
 
 	@Override
 	public void run() {
-		upload();
+		try {
+			upload();
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error("Error uploading recent changes: " + e.getMessage());
+		}
 	}
 
-	private synchronized void upload() {
+	private synchronized void upload() throws Exception {
 		DbxEntry entry = null;
 		long startTime = 0, curTime = 0;
 
-		try {
-			entry = _dbxClient.getMetadata(Constants.DBX_INDEX_FILE_NAME);
-		} catch (DbxException e) {
-			LOGGER.error("Unknown exception occured: " + e.getMessage());
-			return;
-		}
+		entry = _dbxClient.getMetadata(Constants.DBX_INDEX_FILE_NAME);
 
 		while (Helper.UploadQueue.size() > 0) {
-			try {
-				getLockToUpload(entry, startTime, curTime);
-			} catch (DbxException | IOException e) {
-				LOGGER.info("Error acquiring lock: " + e.getMessage());
-				return;
-			}
+			getLockToUpload(entry, startTime, curTime);
 
 			startTime = new Date().getTime();
 			Pair current = Helper.UploadQueue.top();
 			String from = current.getKey();
 			String to = current.getValue();
 			Helper.UploadQueue.deque();
-			try {
-				uploadFile(from, to);
-			} catch (DbxException | IOException e) {
-				LOGGER.info("Error uploading file [" + current.getKey()
-						+ "] to [" + current.getValue() + "]");
-				Helper.UploadQueue.enque(current);
-			}
+			uploadFile(from, to);
 			curTime = new Date().getTime();
 
 			// delete buffer file associated with the uploaded file
@@ -90,7 +84,7 @@ public class DbxUploader implements Runnable {
 	}
 
 	private void getLockToUpload(DbxEntry entry, long startTime, long curTime)
-			throws DbxException, IOException {
+			throws Exception {
 		DbxEntry indexMetadata;
 		DbxEntry.WithChildren listing = null;
 
@@ -126,14 +120,10 @@ public class DbxUploader implements Runnable {
 				diff = new Date().getTime() - time;
 				if (diff < timeLimit) {
 					synchronized (this) {
-						try {
-							LOGGER.info("Waiting " + (timeLimit - diff)
-									+ "ms for the lock to be released");
-							this.wait(timeLimit - diff);
-							LOGGER.info("Assuming that lock is released");
-						} catch (InterruptedException e) {
-							LOGGER.error("Wait interrupted: " + e.getMessage());
-						}
+						LOGGER.info("Waiting " + (timeLimit - diff)
+								+ "ms for the lock to be released");
+						this.wait(timeLimit - diff);
+						LOGGER.info("Assuming that lock is released");
 					}
 				} else {
 					break;
@@ -145,8 +135,7 @@ public class DbxUploader implements Runnable {
 		LOGGER.info("Lock is released");
 	}
 
-	private void uploadFile(String from, String to) throws DbxException,
-			IOException {
+	private void uploadFile(String from, String to) throws Exception {
 		LOGGER.info("Uploading file [" + from + "] to [" + to + "]");
 		DbxEntry metadata = _dbxClient.getMetadata(to);
 		File file = new File(from);
