@@ -190,7 +190,9 @@ public class LuceneHelper {
 		try (IndexReader reader = DirectoryReader.open(FSDirectory
 				.open(new File(Constants.LOCAL_INDEX_PATH)));
 				Analyzer analyzer = new StandardAnalyzer(
-						Version.parseLeniently("4.0"))) {
+						Version.parseLeniently("4.0"));
+				BufferedReader br = new BufferedReader(new InputStreamReader(
+						System.in, "UTF-8"))) {
 			IndexSearcher searcher = new IndexSearcher(reader);
 
 			QueryParser parser = new QueryParser(Version.parseLeniently("4.0"),
@@ -201,9 +203,7 @@ public class LuceneHelper {
 			// System.out.println("Searching for: " +
 			// query.toString(field)); // log
 
-			fileNames = doPagingSearch(new BufferedReader(
-					new InputStreamReader(System.in, "UTF-8")), searcher,
-					query, 10, false, true);
+			fileNames = doPagingSearch(br, searcher, query, 10, false, true);
 		}
 		
 		return fileNames;

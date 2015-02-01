@@ -86,9 +86,6 @@ public class TesseractSwingWorker extends SwingWorker<Void, Void> {
 			out2.println("+:" + actualRectangle[0] + ":" + actualRectangle[1]
 					+ ":" + actualRectangle[2] + ":" + actualRectangle[3] + ":"
 					+ str);
-			out.close();
-			out1.close();
-			out2.close();
 			Helper.UploadQueue.enque(new Pair(Constants.LOCAL_KEY_DETAILS_PATH
 					+ "/" + imageNameText, Constants.DBX_KEY_DETAILS_PATH + "/"
 					+ imageNameText));
