@@ -1,0 +1,11 @@
+/.settings
+/bin
+/cache/details
+/cache/index
+/cache/keyDetails
+/cache/keywords
+/cache/rectDetails
+/cache/timestamp
+/cache/tmp
+/.classpath
+/.project
